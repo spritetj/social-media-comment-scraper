@@ -1,0 +1,46 @@
+/* Social Media Comment Scraper — Custom Styles */
+
+/* Hero section */
+.hero-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #FF4B4B, #FF8C42, #FFD700);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+}
+
+/* Platform cards */
+.platform-card {
+    background: linear-gradient(145deg, #1E1E2E, #262640);
+    border: 1px solid #333355;
+    border-radius: 16px;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.platform-card:hover {
+    border-color: #FF4B4B;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 75, 75, 0.15);
+}
+
+/* Hide Streamlit branding */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+
+/* Metric cards */
+.metric-card {
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    border: 1px solid #333;
+}
+
+/* Download buttons styling */
+.stDownloadButton > button {
+    width: 100%;
+}
