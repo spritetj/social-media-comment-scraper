@@ -12,7 +12,7 @@ nest_asyncio.apply()
 st.set_page_config(page_title="Instagram Scraper", page_icon="📷", layout="wide")
 
 st.markdown("## 📷 Instagram Comment Scraper")
-st.markdown("Scrape comments from Instagram posts and reels using embedded Relay data extraction.")
+st.markdown("Scrape comments from Instagram posts and reels using HTTP API.")
 st.markdown("---")
 
 # Cookie info
@@ -21,21 +21,6 @@ st.info(
     "Upload cookies for authenticated access to get more comments and replies. "
     "[How to export cookies](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)"
 )
-
-# Check for Playwright
-playwright_available = False
-try:
-    import playwright
-    playwright_available = True
-except ImportError:
-    pass
-
-if not playwright_available:
-    st.error(
-        "**Playwright is required** for Instagram scraping. "
-        "Install it with:\n```\npip install playwright && python -m playwright install chromium\n```"
-    )
-    st.stop()
 
 # Sidebar settings
 with st.sidebar:
@@ -49,8 +34,8 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### Info")
     st.markdown(
-        "Instagram comments are extracted from embedded Relay/GraphQL data in the page. "
-        "With cookies, the scraper can paginate through all comments via the REST API."
+        "Instagram comments are extracted via HTTP requests to Instagram's API. "
+        "No browser needed. With cookies, the scraper can paginate through all comments."
     )
 
 # Main input
@@ -65,7 +50,7 @@ col_btn, col_info = st.columns([1, 3])
 with col_btn:
     scrape_btn = st.button("🚀 Start Scraping", type="primary", use_container_width=True)
 with col_info:
-    st.caption("Uses Playwright to load the page and extract embedded comment data.")
+    st.caption("Uses HTTP API — cookies optional.")
 
 # Results area
 if scrape_btn and url_input.strip():

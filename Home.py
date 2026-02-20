@@ -70,9 +70,9 @@ with col1:
         """
         <div class="platform-card">
             <h3>📘 Facebook</h3>
-            <p>Scrape comments from Facebook posts, reels, and videos using in-browser GraphQL API.</p>
+            <p>Scrape comments from Facebook posts, reels, and videos using HTTP API with TLS fingerprint impersonation.</p>
             <p><strong>Features:</strong> All comment types, nested replies, post captions</p>
-            <p><em>Requires cookies — best run locally</em></p>
+            <p><em>Needs cookies — works on cloud & locally</em></p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -101,9 +101,9 @@ with col2:
         """
         <div class="platform-card">
             <h3>📷 Instagram</h3>
-            <p>Scrape comments from Instagram posts and reels. Uses embedded Relay data extraction.</p>
-            <p><strong>Features:</strong> Nested replies, captions, concurrent workers</p>
-            <p><em>Requires cookies — best run locally</em></p>
+            <p>Scrape comments from Instagram posts and reels. Uses HTTP API with embedded data extraction.</p>
+            <p><strong>Features:</strong> Nested replies, captions, authenticated pagination</p>
+            <p><em>Cookies optional — works on cloud & locally</em></p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -117,7 +117,7 @@ st.markdown("### Cloud vs Local Support")
 
 matrix_data = {
     "Platform": ["YouTube (InnerTube API)", "YouTube (yt-dlp fallback)", "TikTok (Direct API)", "TikTok (Playwright)", "Facebook", "Instagram"],
-    "Streamlit Cloud": ["✅ Full", "⚠️ Limited", "✅ Works", "❌ No browser", "⚠️ Needs cookies + browser", "⚠️ Needs cookies + browser"],
+    "Streamlit Cloud": ["✅ Full", "⚠️ Limited", "✅ Works", "❌ No browser", "✅ Needs cookies", "✅ Cookies optional"],
     "Local": ["✅ Full", "✅ Full", "✅ Full", "✅ Full", "✅ Full", "✅ Full"],
 }
 st.table(matrix_data)
@@ -127,5 +127,5 @@ st.markdown("---")
 st.markdown(
     "Runs 100% free — No API key needed. "
     "YouTube & TikTok work via direct HTTP API. "
-    "Facebook & Instagram require Playwright + cookies (best run locally)."
+    "Facebook & Instagram use HTTP API (no browser needed)."
 )

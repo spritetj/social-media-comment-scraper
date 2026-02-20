@@ -12,7 +12,7 @@ nest_asyncio.apply()
 st.set_page_config(page_title="Facebook Scraper", page_icon="📘", layout="wide")
 
 st.markdown("## 📘 Facebook Comment Scraper")
-st.markdown("Scrape comments from Facebook posts, reels, and videos using in-browser GraphQL API.")
+st.markdown("Scrape comments from Facebook posts, reels, and videos using HTTP API.")
 st.markdown("---")
 
 # Cookie requirement notice
@@ -21,21 +21,6 @@ st.info(
     "Upload your Facebook cookies file below. "
     "[How to export cookies](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)"
 )
-
-# Check for Playwright
-playwright_available = False
-try:
-    import playwright
-    playwright_available = True
-except ImportError:
-    pass
-
-if not playwright_available:
-    st.error(
-        "**Playwright is required** for Facebook scraping. "
-        "Install it with:\n```\npip install playwright && python -m playwright install chromium\n```"
-    )
-    st.stop()
 
 # Sidebar settings
 with st.sidebar:
@@ -49,9 +34,8 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### Info")
     st.markdown(
-        "Facebook scraping uses Playwright to load the page once, "
-        "then fires GraphQL API calls from inside the browser. "
-        "Typically 5-15x faster than scroll-based methods."
+        "Facebook scraping uses HTTP requests with TLS fingerprint impersonation "
+        "to call Facebook's GraphQL API directly. No browser needed."
     )
 
 # Main input
@@ -66,7 +50,7 @@ col_btn, col_info = st.columns([1, 3])
 with col_btn:
     scrape_btn = st.button("🚀 Start Scraping", type="primary", use_container_width=True)
 with col_info:
-    st.caption("Uses in-browser GraphQL API — requires Playwright + cookies.")
+    st.caption("Uses HTTP API — requires cookies.")
 
 # Results area
 if scrape_btn and url_input.strip():
