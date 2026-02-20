@@ -6,13 +6,19 @@ import streamlit as st
 import nest_asyncio
 import asyncio
 import time
+from pathlib import Path
 
 nest_asyncio.apply()
 
 st.set_page_config(page_title="Facebook Scraper", page_icon="📘", layout="wide")
 
+# Load custom CSS
+css_path = Path(__file__).parent.parent / "assets" / "style.css"
+if css_path.exists():
+    st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
+
 st.markdown("## 📘 Facebook Comment Scraper")
-st.markdown("Scrape comments from Facebook posts, reels, and videos using HTTP API.")
+st.markdown("Scrape comments from Facebook posts, reels, and videos.")
 st.markdown("---")
 
 # Cookie requirement notice
@@ -32,11 +38,10 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.markdown("### Info")
-    st.markdown(
-        "Facebook scraping uses HTTP requests with TLS fingerprint impersonation "
-        "to call Facebook's GraphQL API directly. No browser needed."
-    )
+    qr_path = Path(__file__).parent.parent / "assets" / "qr_payment.jpeg"
+    if qr_path.exists():
+        with st.popover("☕ Donate"):
+            st.image(str(qr_path), caption="PromptPay", width=200)
 
 # Main input
 url_input = st.text_area(
@@ -50,7 +55,7 @@ col_btn, col_info = st.columns([1, 3])
 with col_btn:
     scrape_btn = st.button("🚀 Start Scraping", type="primary", use_container_width=True)
 with col_info:
-    st.caption("Uses HTTP API — requires cookies.")
+    st.caption("Requires cookies for authentication.")
 
 # Results area
 if scrape_btn and url_input.strip():
@@ -94,7 +99,6 @@ if scrape_btn and url_input.strip():
     loop = asyncio.new_event_loop()
     for i, url in enumerate(urls):
         on_progress(f"--- Post {i+1}/{len(urls)} ---")
-        on_progress(f"URL: {url[:80]}")
         try:
             comments = loop.run_until_complete(
                 scrape_comments_fast(url, cookies=cookies, progress_callback=on_progress)
@@ -105,7 +109,7 @@ if scrape_btn and url_input.strip():
             else:
                 on_progress("No comments found for this post")
         except Exception as e:
-            on_progress(f"Error: {e}")
+            on_progress(f"Something went wrong. Please try again.")
     loop.close()
 
     elapsed = time.time() - start_time

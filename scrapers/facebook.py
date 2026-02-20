@@ -432,7 +432,7 @@ async def fetch_page_and_tokens(
         _progress("Empty HTML response")
         return result
 
-    _progress(f"Page fetched: {len(html)} bytes, status {resp.status_code}")
+    # Page fetched successfully
 
     # Extract tokens from HTML via regex
     m = re.search(r'"DTSGInitialData".*?"token":"([^"]+)"', html)
@@ -501,7 +501,6 @@ async def fetch_page_and_tokens(
     # Strategy 3: Construct from URL
     if not result["feedback_id"] and url_post_id and url_type == "post":
         result["feedback_id"] = build_feedback_id(url_post_id)
-        _progress(f"Constructed feedback_id from URL: feedback:{url_post_id}")
 
     # Parse initial comments and expansion tokens from embedded JSON scripts
     script_pattern = re.compile(
@@ -760,35 +759,29 @@ async def scrape_comments_fast(
 
     start_time = time.time()
     url_type = detect_url_type(post_url)
-    _progress(f"Scraping {url_type}: {post_url}")
+    _progress(f"Processing: {post_url}")
 
     # Create session with Chrome TLS impersonation
     session = await create_session(cookie_dict)
 
     try:
         # Phase 1: Fetch page and extract tokens
-        _progress("Phase 1: Fetching page and extracting tokens...")
+        _progress("Loading post...")
         phase1_start = time.time()
         tokens = await fetch_page_and_tokens(session, post_url, cookie_dict, progress_fn=_progress)
         phase1_time = time.time() - phase1_start
 
         if not tokens["fb_dtsg"]:
-            _progress("Failed to extract fb_dtsg token. Cannot proceed.")
-            _progress("Make sure your cookies are valid and not expired.")
+            _progress("Authentication failed. Please check your cookies.")
             return []
 
         if not tokens["feedback_id"]:
-            _progress("Failed to find feedback_id for this post.")
+            _progress("Could not identify this post. Please check the URL.")
             return []
 
-        _progress(f"Tokens extracted in {phase1_time:.1f}s:")
-        _progress(f"  fb_dtsg: {tokens['fb_dtsg'][:20]}...")
-        _progress(f"  feedback_id: {decode_fb_id(tokens['feedback_id'])}")
-        _progress(f"  Initial comments: {len(tokens['initial_comments'])}")
-        _progress(f"  Expansion tokens: {len(tokens['expansion_tokens'])}")
         if tokens["post_caption"]:
             preview = tokens["post_caption"][:80] + ("..." if len(tokens["post_caption"]) > 80 else "")
-            _progress(f"  Post caption: {preview}")
+            _progress(f"Caption: {preview}")
 
         # Collect all comments
         comment_ids = set()
@@ -807,7 +800,7 @@ async def scrape_comments_fast(
             feed_location = "DEDICATED_COMMENTING_SURFACE"
 
         # Phase 2: Paginate via GraphQL API
-        _progress("Phase 2: Fetching comments via GraphQL API...")
+        _progress("Fetching comments...")
         phase2_start = time.time()
 
         # Root query
@@ -824,7 +817,8 @@ async def scrape_comments_fast(
         root_tokens = parse_expansion_tokens_from_text(raw_root)
         expansion_tokens.update(root_tokens)
 
-        _progress(f"Root query: {len(root_comments)} comments, cursor: {'yes' if cursor else 'no'}")
+        if root_comments:
+            _progress(f"Found {len(root_comments)} initial comments")
 
         # Retry with alternate feed locations for reel/watch/video
         if not root_comments and not cursor and url_type in ("reel", "watch", "video"):
@@ -837,7 +831,7 @@ async def scrape_comments_fast(
             ]
             alt_locations = [fl for fl in alt_locations if fl != feed_location]
             for alt_fl in alt_locations:
-                _progress(f"Retrying with feedLocation={alt_fl}")
+                # Try alternate query
                 raw_root2, root_comments2, cursor2 = await fetch_root_comments(
                     session, tokens, feed_location=alt_fl,
                 )
@@ -851,15 +845,13 @@ async def scrape_comments_fast(
                         if cid and cid not in comment_ids:
                             comment_ids.add(cid)
                             all_comments.append(node)
-                    _progress(f"Success with feedLocation={alt_fl}: {len(root_comments2)} comments")
+                    _progress(f"Found {len(root_comments2)} comments")
                     break
                 await asyncio.sleep(0.1)
 
         # Use initial cursor as fallback
         if not cursor:
             cursor = tokens.get("initial_cursor", "")
-            if cursor:
-                _progress("Using initial cursor from page data")
 
         # Paginate
         page_num = 0
@@ -884,12 +876,11 @@ async def scrape_comments_fast(
             expansion_tokens.update(page_tokens)
 
             if new_count > 0:
-                _progress(f"Page {page_num}: +{new_count} comments (total: {len(all_comments)})")
+                _progress(f"Found {len(all_comments)} comments so far...")
                 consecutive_empty = 0
             else:
                 consecutive_empty += 1
                 if consecutive_empty >= 3:
-                    _progress("3 consecutive empty pages, stopping.")
                     break
 
             if not next_cursor or next_cursor == cursor:
@@ -899,10 +890,9 @@ async def scrape_comments_fast(
             await asyncio.sleep(random.uniform(0.1, 0.3))
 
         phase2_time = time.time() - phase2_start
-        _progress(f"Pagination done in {phase2_time:.1f}s ({page_num} pages)")
 
         # Phase 3: Expand reply threads
-        _progress("Phase 3: Expanding reply threads...")
+        _progress("Loading replies...")
         phase3_start = time.time()
         reply_count_before = len(all_comments)
 
@@ -937,7 +927,7 @@ async def scrape_comments_fast(
             if not reply_items:
                 break
 
-            _progress(f"Depth pass {depth_pass + 1}: {len(reply_items)} threads to expand")
+            # Expanding reply threads
 
             pass_new = 0
             for batch_start in range(0, len(reply_items), REPLY_BATCH_SIZE):
@@ -957,14 +947,11 @@ async def scrape_comments_fast(
                             pass_new += 1
 
             if pass_new > 0:
-                _progress(f"Depth pass {depth_pass + 1}: +{pass_new} replies (total: {len(all_comments)})")
+                _progress(f"Found {len(all_comments)} comments so far...")
             else:
                 break
 
         phase3_time = time.time() - phase3_start
-        new_replies = len(all_comments) - reply_count_before
-        if new_replies > 0:
-            _progress(f"Reply expansion: +{new_replies} replies in {phase3_time:.1f}s")
 
     finally:
         await session.close()
@@ -979,6 +966,6 @@ async def scrape_comments_fast(
     top_level = sum(1 for c in formatted if c.get("threadingDepth", 0) == 0)
     replies = len(formatted) - top_level
 
-    _progress(f"Total: {len(formatted)} comments ({top_level} top-level + {replies} replies) in {elapsed:.1f}s")
+    _progress(f"Done! {len(formatted)} comments found.")
 
     return formatted

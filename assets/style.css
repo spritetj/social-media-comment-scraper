@@ -1,46 +1,299 @@
-/* Social Media Comment Scraper — Custom Styles */
+/* Social Media Comment Scraper — Professional Theme */
 
-/* Hero section */
+/* ============================================
+   Hide ALL Streamlit Branding
+   ============================================ */
+#MainMenu {visibility: hidden !important;}
+footer {visibility: hidden !important;}
+header {visibility: hidden !important;}
+[data-testid="stDecoration"] {display: none !important;}
+.stDeployButton {display: none !important;}
+[data-testid="manage-app-button"] {display: none !important;}
+[data-testid="stToolbar"] {display: none !important;}
+div[data-testid="stStatusWidget"] {display: none !important;}
+
+/* ============================================
+   Typography & Base
+   ============================================ */
+.stApp {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+h1, h2, h3, h4 {
+    letter-spacing: -0.02em;
+    font-weight: 700;
+}
+
+/* ============================================
+   Hero Section
+   ============================================ */
 .hero-title {
-    font-size: 2.5rem;
+    font-size: 2.8rem;
     font-weight: 800;
-    background: linear-gradient(135deg, #FF4B4B, #FF8C42, #FFD700);
+    background: linear-gradient(135deg, #6C63FF 0%, #B06CFF 50%, #6C63FF 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
 }
 
-/* Platform cards */
+/* ============================================
+   Glass-morphism Platform Cards
+   ============================================ */
 .platform-card {
-    background: linear-gradient(145deg, #1E1E2E, #262640);
-    border: 1px solid #333355;
+    background: rgba(30, 30, 50, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(108, 99, 255, 0.15);
     border-radius: 16px;
-    padding: 1.5rem;
-    transition: all 0.3s ease;
+    padding: 1.6rem;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.platform-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(108, 99, 255, 0.5), transparent);
+    opacity: 0;
+    transition: opacity 0.35s ease;
 }
 
 .platform-card:hover {
-    border-color: #FF4B4B;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(255, 75, 75, 0.15);
+    border-color: rgba(108, 99, 255, 0.4);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(108, 99, 255, 0.12),
+                0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-/* Hide Streamlit branding */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
+.platform-card:hover::before {
+    opacity: 1;
+}
 
-/* Metric cards */
-.metric-card {
-    background: #1a1a2e;
+.platform-card h3 {
+    font-size: 1.3rem;
+    margin-bottom: 0.6rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.platform-card p {
+    color: #b0b0c0;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    margin-bottom: 0.4rem;
+}
+
+/* ============================================
+   Metric Cards with Gradient Borders
+   ============================================ */
+[data-testid="stMetric"] {
+    background: rgba(30, 30, 50, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(108, 99, 255, 0.2);
     border-radius: 12px;
     padding: 1rem;
     text-align: center;
-    border: 1px solid #333;
+    transition: all 0.3s ease;
 }
 
-/* Download buttons styling */
+[data-testid="stMetric"]:hover {
+    border-color: rgba(108, 99, 255, 0.4);
+    box-shadow: 0 0 20px rgba(108, 99, 255, 0.08);
+}
+
+[data-testid="stMetricValue"] {
+    font-size: 1.6rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #6C63FF, #B06CFF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ============================================
+   Buttons
+   ============================================ */
+.stButton > button {
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(108, 99, 255, 0.3);
+}
+
+.stButton > button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(108, 99, 255, 0.25);
+}
+
+.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #6C63FF, #8B5CF6);
+    border: none;
+}
+
+.stButton > button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #7C73FF, #9B6CF6);
+    box-shadow: 0 6px 20px rgba(108, 99, 255, 0.35);
+}
+
+/* Download Buttons */
 .stDownloadButton > button {
     width: 100%;
+    border-radius: 10px;
+    border: 1px solid rgba(108, 99, 255, 0.3);
+    font-weight: 600;
+    transition: all 0.3s ease;
 }
+
+.stDownloadButton > button:hover {
+    border-color: rgba(108, 99, 255, 0.6);
+    box-shadow: 0 4px 15px rgba(108, 99, 255, 0.15);
+}
+
+/* ============================================
+   Input Areas
+   ============================================ */
+.stTextArea textarea {
+    background: rgba(20, 20, 35, 0.7);
+    border: 1px solid rgba(108, 99, 255, 0.2);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    transition: border-color 0.3s ease;
+}
+
+.stTextArea textarea:focus {
+    border-color: rgba(108, 99, 255, 0.6);
+    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.1);
+}
+
+/* ============================================
+   Status / Progress Display
+   ============================================ */
+[data-testid="stExpander"] {
+    background: rgba(20, 20, 35, 0.5);
+    border: 1px solid rgba(108, 99, 255, 0.15);
+    border-radius: 12px;
+}
+
+/* ============================================
+   Data Table
+   ============================================ */
+[data-testid="stDataFrame"] {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.stDataFrame {
+    border: 1px solid rgba(108, 99, 255, 0.15);
+    border-radius: 12px;
+}
+
+/* ============================================
+   Sidebar Polish
+   ============================================ */
+section[data-testid="stSidebar"] {
+    background: rgba(14, 17, 23, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+section[data-testid="stSidebar"] .stMarkdown h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+/* ============================================
+   Donation / Support Card
+   ============================================ */
+.donation-card {
+    background: rgba(30, 30, 50, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(108, 99, 255, 0.2);
+    border-radius: 14px;
+    padding: 1.2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.donation-card:hover {
+    border-color: rgba(108, 99, 255, 0.4);
+    box-shadow: 0 8px 30px rgba(108, 99, 255, 0.1);
+}
+
+.donation-card h4 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    color: #e0e0f0;
+}
+
+.donation-card p {
+    font-size: 0.85rem;
+    color: #8888aa;
+    margin-bottom: 0.8rem;
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+.pro-footer {
+    text-align: center;
+    padding: 2rem 0 1rem 0;
+    color: #666688;
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+}
+
+/* ============================================
+   Scrollbar
+   ============================================ */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(108, 99, 255, 0.3);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(108, 99, 255, 0.5);
+}
+
+/* ============================================
+   Slider
+   ============================================ */
+.stSlider [data-baseweb="slider"] {
+    margin-top: 0.5rem;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.platform-card {
+    animation: fadeIn 0.5s ease forwards;
+}
+
+.platform-card:nth-child(2) { animation-delay: 0.1s; }
+.platform-card:nth-child(3) { animation-delay: 0.2s; }
+.platform-card:nth-child(4) { animation-delay: 0.3s; }

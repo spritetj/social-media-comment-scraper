@@ -604,11 +604,11 @@ async def scrape_single_post(
         _progress("Story URLs are not supported.")
         return []
 
-    _progress(f"Scraping {url_type}: {post_url}")
+    _progress(f"Processing: {post_url}")
 
     # Init session
     session, csrf_token, has_auth = await init_session(cookies)
-    _progress(f"Session: csrf={'yes' if csrf_token else 'no'}, auth={'yes' if has_auth else 'no'}")
+    # Session initialized
 
     all_comments: list[dict] = []
     seen_ids: set[str] = set()
@@ -624,14 +624,14 @@ async def scrape_single_post(
 
     try:
         # Phase 1: Fetch page HTML and extract embedded data
-        _progress("Fetching page HTML...")
+        _progress("Loading post...")
         html = await fetch_page_html(session, post_url)
         if not html:
             _progress("Failed to fetch page HTML.")
             return []
 
         if "/accounts/login/" in html or "loginForm" in html:
-            _progress("Instagram returned login page. May need cookies.")
+            _progress("Login required. Please upload cookies.")
 
         relay_data = extract_relay_data(html)
 
@@ -651,9 +651,7 @@ async def scrape_single_post(
             total_comment_count = web_info.get("comment_count", 0) or 0
             shortcode = web_info.get("code", shortcode)
             media_pk = web_info.get("pk")
-            _progress(f"Post by @{web_info.get('username', '?')}, "
-                      f"{total_comment_count} comments, "
-                      f"{web_info.get('like_count', 0)} likes")
+            _progress(f"Found post with {total_comment_count} comments")
 
         if comments_conn and comments_conn.get("edges"):
             for edge in comments_conn["edges"]:
@@ -749,7 +747,8 @@ async def scrape_single_post(
                     add_comments([comment])
             has_more_comments = total_comment_count > len(all_comments)
 
-        _progress(f"Embedded data: {len(all_comments)} comments extracted")
+        if all_comments:
+            _progress(f"Found {len(all_comments)} comments")
 
         # Phase 2: Pagination
         if has_auth and media_pk:
@@ -758,10 +757,7 @@ async def scrape_single_post(
                 [c for c in all_comments if c.get("threadingDepth", 0) == 0]
             )
             if has_more_comments or top_level_count < total_comment_count:
-                _progress(
-                    f"Fetching remaining comments via API "
-                    f"({top_level_count}/{total_comment_count})..."
-                )
+                _progress("Loading more comments...")
                 min_id = None
                 consecutive_empty = 0
                 page_num = 0
@@ -772,10 +768,7 @@ async def scrape_single_post(
                     )
                     if not result or result.get("__error"):
                         if result:
-                            _progress(
-                                f"API error: "
-                                f"{result.get('status', result.get('message', 'unknown'))}"
-                            )
+                            _progress("Could not load more comments")
                         break
 
                     comments_list = result.get("comments", [])
@@ -810,19 +803,12 @@ async def scrape_single_post(
                     else:
                         consecutive_empty = 0
                     min_id = next_min_id
-                    _progress(f"Page {page_num}: +{added} comments (total: {len(all_comments)})")
+                    _progress(f"Found {len(all_comments)} comments so far...")
                     await asyncio.sleep(random.uniform(PAGE_DELAY_MIN, PAGE_DELAY_MAX))
 
                 # Fetch child/reply comments
                 if parent_comments_with_replies:
-                    total_replies = sum(
-                        cnt for _, cnt in parent_comments_with_replies
-                    )
-                    _progress(
-                        f"Fetching replies for "
-                        f"{len(parent_comments_with_replies)} comments "
-                        f"({total_replies} replies)..."
-                    )
+                    _progress("Loading replies...")
                     for comment_pk, child_count in parent_comments_with_replies:
                         max_id = None
                         fetched = 0
@@ -854,8 +840,8 @@ async def scrape_single_post(
                             await asyncio.sleep(random.uniform(0.3, 0.8))
 
         elif has_more_comments and end_cursor:
-            # Unauthenticated GraphQL pagination
-            _progress("Paginating via GraphQL (unauthenticated)...")
+            # Unauthenticated pagination
+            _progress("Loading more comments...")
             captured_doc_id = None
             for test_id in GRAPHQL_DOC_IDS:
                 result = await graphql_query(
@@ -955,7 +941,7 @@ async def scrape_single_post(
                             break
                     else:
                         consecutive_empty = 0
-                    _progress(f"GraphQL page {page_num}: +{added} comments (total: {len(all_comments)})")
+                    _progress(f"Found {len(all_comments)} comments so far...")
                     await asyncio.sleep(
                         random.uniform(PAGE_DELAY_MIN, PAGE_DELAY_MAX)
                     )
@@ -1020,7 +1006,7 @@ async def scrape_post_urls(
 
     if cookie_dict:
         has_session = "sessionid" in cookie_dict
-        _progress(f"Loaded {len(cookie_dict)} cookies ({'authenticated' if has_session else 'no sessionid'})")
+        _progress("Cookies loaded")
 
     # Pre-filter invalid URLs
     valid_urls: list[str] = []

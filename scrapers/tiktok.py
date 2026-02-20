@@ -266,7 +266,7 @@ class TikTokCommentScraper:
                                 cursor = data.get("cursor", cursor + COMMENTS_PER_PAGE)
                                 delay.on_success()
 
-                                self._progress(f"  ... {len(comments)} comments fetched")
+                                self._progress(f"Found {len(comments)} comments so far...")
                                 break
                             else:
                                 delay.on_error()
@@ -346,7 +346,7 @@ class TikTokCommentScraper:
             )
 
             # Navigate to video to establish session cookies
-            self._progress("Establishing session...")
+            self._progress("Connecting...")
             nav_ok = False
             try:
                 await page.goto(video_url, wait_until="domcontentloaded", timeout=45000)
@@ -364,7 +364,7 @@ class TikTokCommentScraper:
                 raise RuntimeError("Could not load TikTok page")
 
             # Use page.evaluate to call the API from within the page context
-            self._progress("Fetching comments via internal API...")
+            self._progress("Fetching comments...")
             cursor = 0
             has_more = True
             page_num = 0
@@ -430,7 +430,7 @@ class TikTokCommentScraper:
                 cursor = api_result.get("cursor", cursor + COMMENTS_PER_PAGE)
                 delay.on_success()
 
-                self._progress(f"  Page {page_num}: {len(comments)} comments total")
+                self._progress(f"Found {len(comments)} comments so far...")
 
                 # Check max limit
                 if self.max_comments > 0 and len(comments) >= self.max_comments:
@@ -453,7 +453,7 @@ class TikTokCommentScraper:
                 comments.extend(replies)
 
         except Exception as e:
-            self._progress(f"Playwright method unavailable: {_clean_error(e)}")
+            self._progress("This method is not available")
         finally:
             try:
                 if browser:
@@ -535,7 +535,7 @@ class TikTokCommentScraper:
             page.on("response", handle_response)
 
             # -- Navigate to the video page ---------------------------------
-            self._progress("Opening video page...")
+            self._progress("Loading video...")
             try:
                 await page.goto(video_url, wait_until="domcontentloaded", timeout=45000)
                 await page.wait_for_timeout(4000)
@@ -547,7 +547,7 @@ class TikTokCommentScraper:
                     raise RuntimeError("Could not load TikTok page")
 
             # -- Scroll down to trigger comment loading ---------------------
-            self._progress("Scrolling to load comments...")
+            self._progress("Loading comments...")
             max_scroll = (
                 50
                 if self.max_comments == 0
@@ -573,7 +573,7 @@ class TikTokCommentScraper:
                 if current_count > prev_count:
                     no_new_count = 0
                     prev_count = current_count
-                    self._progress(f"  ... {current_count} comments loaded")
+                    self._progress(f"Found {current_count} comments so far...")
                 else:
                     no_new_count += 1
 
@@ -581,9 +581,7 @@ class TikTokCommentScraper:
                     break
 
                 if no_new_count >= 5:
-                    self._progress(
-                        f"  No more comments to load (total: {current_count})"
-                    )
+                    self._progress(f"All comments loaded ({current_count} total)")
                     break
 
                 # Try clicking "View more comments" button if present
@@ -596,7 +594,7 @@ class TikTokCommentScraper:
                     pass
 
         except Exception as e:
-            self._progress(f"Scroll method unavailable: {_clean_error(e)}")
+            self._progress("Something went wrong loading comments")
         finally:
             try:
                 if browser:
@@ -712,10 +710,7 @@ class TikTokCommentScraper:
         if not comments_with_replies:
             return []
 
-        self._progress(
-            f"Fetching replies for {len(comments_with_replies)} comment(s) "
-            f"({concurrency} concurrent)..."
-        )
+        self._progress("Loading replies...")
         all_replies = []
         semaphore = asyncio.Semaphore(concurrency)
 
@@ -726,10 +721,7 @@ class TikTokCommentScraper:
                     comment_ids_seen, delay, deadline,
                 )
                 if (idx + 1) % 20 == 0 or idx + 1 == len(comments_with_replies):
-                    self._progress(
-                        f"  ... replies fetched for {idx + 1}/"
-                        f"{len(comments_with_replies)} comments"
-                    )
+                    self._progress(f"Loading replies... ({idx + 1}/{len(comments_with_replies)})")
                 return result
 
         connector = aiohttp.TCPConnector(limit=concurrency + 2, keepalive_timeout=30)
@@ -746,7 +738,7 @@ class TikTokCommentScraper:
             if isinstance(result, list):
                 all_replies.extend(result)
             elif isinstance(result, Exception):
-                self._progress(f"Reply fetch error: {result}")
+                self._progress("Some replies could not be loaded")
 
         return all_replies
 
@@ -768,7 +760,7 @@ class TikTokCommentScraper:
                     ) as resp:
                         final_url = str(resp.url)
                         if "/video/" in final_url or "/photo/" in final_url:
-                            self._progress(f"Resolved short URL -> {final_url}")
+                            self._progress("Processing URL...")
                             return final_url
             except Exception:
                 pass
@@ -799,13 +791,9 @@ class TikTokCommentScraper:
                             return caption
                         elif resp.status == 429:
                             wait = 2 ** (attempt + 1)
-                            self._progress(f"oEmbed rate limited, retrying in {wait}s...")
                             await asyncio.sleep(wait)
                             continue
                         else:
-                            self._progress(
-                                f"oEmbed returned {resp.status}, skipping caption"
-                            )
                             return ""
             except Exception:
                 if attempt < MAX_RETRIES - 1:
@@ -839,31 +827,24 @@ class TikTokCommentScraper:
             self._progress("URL must contain /video/NUMBERS or /photo/NUMBERS")
             return []
 
-        self._progress(f"Video ID: {video_id}")
-        self._progress(f"URL: {video_url}")
-        limit_text = f"{self.max_comments}" if self.max_comments > 0 else "ALL"
+        self._progress(f"Processing: {video_url}")
+        limit_text = f"{self.max_comments}" if self.max_comments > 0 else "all"
         self._progress(f"Comment limit: {limit_text}")
-        if deadline:
-            remaining = max(0, int(deadline - time.monotonic()))
-            self._progress(f"Timeout: {remaining}s remaining")
 
         # Fetch video caption via oEmbed
         caption = await self._fetch_video_caption(video_url)
 
         # Method 1: Direct API (fastest and most reliable)
-        self._progress("Trying direct API...")
         comments = await self._scrape_comments_api(video_url, video_id, deadline=deadline)
 
         # Method 2: Playwright + internal API (if direct fails)
         if not comments and (not deadline or time.monotonic() < deadline):
-            self._progress("Trying browser-based API...")
             comments = await self._scrape_comments_playwright_api(
                 video_url, video_id, deadline=deadline
             )
 
         # Method 3: Playwright scroll intercept (last resort)
         if not comments and (not deadline or time.monotonic() < deadline):
-            self._progress("Trying scroll-based approach...")
             comments = await self._scrape_comments_playwright(
                 video_url, video_id, deadline=deadline
             )

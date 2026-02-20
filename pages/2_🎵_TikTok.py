@@ -6,13 +6,19 @@ import streamlit as st
 import nest_asyncio
 import asyncio
 import time
+from pathlib import Path
 
 nest_asyncio.apply()
 
 st.set_page_config(page_title="TikTok Scraper", page_icon="🎵", layout="wide")
 
+# Load custom CSS
+css_path = Path(__file__).parent.parent / "assets" / "style.css"
+if css_path.exists():
+    st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
+
 st.markdown("## 🎵 TikTok Comment Scraper")
-st.markdown("Extract comments & replies from TikTok videos using direct API with browser fallback.")
+st.markdown("Extract comments & replies from TikTok videos.")
 st.markdown("---")
 
 # Sidebar settings
@@ -30,10 +36,10 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.info(
-        "TikTok's direct API works without a browser. "
-        "If it fails, the scraper will try browser-based methods (requires Playwright)."
-    )
+    qr_path = Path(__file__).parent.parent / "assets" / "qr_payment.jpeg"
+    if qr_path.exists():
+        with st.popover("☕ Donate"):
+            st.image(str(qr_path), caption="PromptPay", width=200)
 
 # Main input
 url_input = st.text_area(
@@ -47,7 +53,7 @@ col_btn, col_info = st.columns([1, 3])
 with col_btn:
     scrape_btn = st.button("🚀 Start Scraping", type="primary", use_container_width=True)
 with col_info:
-    st.caption("Uses TikTok's comment API directly — fast and reliable.")
+    st.caption("Fast and reliable extraction.")
 
 # Results area
 if scrape_btn and url_input.strip():
@@ -94,7 +100,7 @@ if scrape_btn and url_input.strip():
             else:
                 on_progress("No comments found for this video")
         except Exception as e:
-            on_progress(f"Error: {e}")
+            on_progress(f"Something went wrong. Please try again.")
     loop.close()
 
     elapsed = time.time() - start_time

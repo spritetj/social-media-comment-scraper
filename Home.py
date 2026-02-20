@@ -33,7 +33,10 @@ with st.sidebar:
         "- 📷 Instagram"
     )
     st.markdown("---")
-    st.caption("Free & open source. No API key needed.")
+    qr_path = Path(__file__).parent / "assets" / "qr_payment.jpeg"
+    if qr_path.exists():
+        with st.popover("☕ Donate"):
+            st.image(str(qr_path), caption="PromptPay", width=200)
 
 # Hero section
 st.markdown("")
@@ -42,7 +45,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    "**Extract comments from any social media post — free, fast, no API key required.**"
+    "**Extract comments from any social media post — fast and easy.**"
 )
 st.markdown("---")
 
@@ -54,9 +57,7 @@ with col1:
         """
         <div class="platform-card">
             <h3>🎬 YouTube</h3>
-            <p>Extract comments & replies from any YouTube video. Uses YouTube's InnerTube API with multi-method fallback.</p>
-            <p><strong>Features:</strong> Sort by top/newest, get replies, bulk URL support</p>
-            <p><em>Works on cloud & locally — no browser needed</em></p>
+            <p>Extract comments & replies from any YouTube video. Supports sorting, bulk URLs, and full reply threads.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -70,9 +71,7 @@ with col1:
         """
         <div class="platform-card">
             <h3>📘 Facebook</h3>
-            <p>Scrape comments from Facebook posts, reels, and videos using HTTP API with TLS fingerprint impersonation.</p>
-            <p><strong>Features:</strong> All comment types, nested replies, post captions</p>
-            <p><em>Needs cookies — works on cloud & locally</em></p>
+            <p>Scrape comments from Facebook posts, reels, and videos. Supports all comment types and nested replies.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -85,9 +84,7 @@ with col2:
         """
         <div class="platform-card">
             <h3>🎵 TikTok</h3>
-            <p>Extract comments & replies from TikTok videos. Direct API access with browser-based fallback.</p>
-            <p><strong>Features:</strong> Video captions, reply threads, parallel workers</p>
-            <p><em>Works on cloud & locally</em></p>
+            <p>Extract comments & replies from TikTok videos. Includes video captions and reply threads.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -101,9 +98,7 @@ with col2:
         """
         <div class="platform-card">
             <h3>📷 Instagram</h3>
-            <p>Scrape comments from Instagram posts and reels. Uses HTTP API with embedded data extraction.</p>
-            <p><strong>Features:</strong> Nested replies, captions, authenticated pagination</p>
-            <p><em>Cookies optional — works on cloud & locally</em></p>
+            <p>Scrape comments from Instagram posts and reels. Includes nested replies and captions.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -111,21 +106,17 @@ with col2:
     if st.button("Start Scraping Instagram →", key="ig_btn", use_container_width=True):
         st.switch_page("pages/4_📷_Instagram.py")
 
-# Cloud vs Local feature matrix
-st.markdown("---")
-st.markdown("### Cloud vs Local Support")
-
-matrix_data = {
-    "Platform": ["YouTube (InnerTube API)", "YouTube (yt-dlp fallback)", "TikTok (Direct API)", "TikTok (Playwright)", "Facebook", "Instagram"],
-    "Streamlit Cloud": ["✅ Full", "⚠️ Limited", "✅ Works", "❌ No browser", "✅ Needs cookies", "✅ Cookies optional"],
-    "Local": ["✅ Full", "✅ Full", "✅ Full", "✅ Full", "✅ Full", "✅ Full"],
-}
-st.table(matrix_data)
-
 # Footer
 st.markdown("---")
-st.markdown(
-    "Runs 100% free — No API key needed. "
-    "YouTube & TikTok work via direct HTTP API. "
-    "Facebook & Instagram use HTTP API (no browser needed)."
-)
+
+footer_col1, footer_col2 = st.columns([4, 1])
+with footer_col1:
+    st.markdown(
+        '<div class="pro-footer" style="text-align:left;">Built with care. All platforms supported.</div>',
+        unsafe_allow_html=True,
+    )
+with footer_col2:
+    qr_path = Path(__file__).parent / "assets" / "qr_payment.jpeg"
+    if qr_path.exists():
+        with st.popover("☕ Donate"):
+            st.image(str(qr_path), caption="PromptPay", width=200)

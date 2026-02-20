@@ -204,16 +204,16 @@ async def fetch_initial_data(
                     try:
                         return json.loads(match.group(1))
                     except json.JSONDecodeError:
-                        _progress("Failed to parse ytInitialData JSON")
+                        _progress("Could not load video data")
                         return None
                 else:
-                    _progress("ytInitialData not found in page HTML")
+                    _progress("Could not load video data")
                     return None
         except Exception as e:
             if attempt < MAX_RETRIES - 1:
                 await asyncio.sleep(2 ** attempt)
             else:
-                _progress(f"Failed to fetch page: {e}")
+                _progress("Could not load video page")
     return None
 
 
@@ -760,7 +760,7 @@ class YouTubeCommentScraper:
                     )
 
             # Step 1: Fetch initial page data
-            self._progress("Fetching video page...")
+            self._progress("Loading video...")
             initial_data = await fetch_initial_data(
                 video_url, session, progress_fn=self._progress,
             )
@@ -807,9 +807,7 @@ class YouTubeCommentScraper:
 
                     if resp_data and resp_data.get("_rate_limited"):
                         delay.on_rate_limit()
-                        self._progress(
-                            f"Rate limited, backing off ({delay.delay:.1f}s)..."
-                        )
+                        self._progress("Please wait, loading...")
                         await delay.wait()
                         continue
 
@@ -854,7 +852,7 @@ class YouTubeCommentScraper:
                 continuation = next_continuation
                 delay.on_success()
 
-                self._progress(f"  Page {page_num}: {len(comments)} comments total")
+                self._progress(f"Found {len(comments)} comments so far...")
 
                 # Check max limit
                 if self.max_comments > 0 and len(comments) >= self.max_comments:
@@ -896,9 +894,7 @@ class YouTubeCommentScraper:
 
         to_fetch = reply_continuations
 
-        self._progress(
-            f"Fetching replies for {len(to_fetch)} comment(s) ({concurrency} concurrent)..."
-        )
+        self._progress("Loading replies...")
         all_replies = []
         semaphore = asyncio.Semaphore(concurrency)
 
@@ -948,9 +944,7 @@ class YouTubeCommentScraper:
                     await delay.wait()
 
                 if (idx + 1) % 10 == 0 or idx + 1 == len(to_fetch):
-                    self._progress(
-                        f"  ... replies fetched for {idx + 1}/{len(to_fetch)} comments"
-                    )
+                    self._progress(f"Loading replies... ({idx + 1}/{len(to_fetch)})")
 
                 return replies
 
@@ -964,7 +958,7 @@ class YouTubeCommentScraper:
             if isinstance(result, list):
                 all_replies.extend(result)
             elif isinstance(result, Exception):
-                self._progress(f"Reply fetch error: {result}")
+                self._progress("Some replies could not be loaded")
 
         return all_replies
 
@@ -981,10 +975,9 @@ class YouTubeCommentScraper:
     ) -> list[dict]:
         """Fallback: use yt-dlp to extract comments."""
         if not YTDLP_AVAILABLE:
-            self._progress("yt-dlp not installed, skipping Method 2")
             return []
 
-        self._progress("Using yt-dlp to extract comments...")
+        self._progress("Trying alternative method...")
 
         loop = asyncio.get_event_loop()
 
@@ -1016,7 +1009,7 @@ class YouTubeCommentScraper:
                     info = ydl.extract_info(video_url, download=False)
                     return info
             except Exception as e:
-                self._progress(f"yt-dlp error: {e}")
+                self._progress("Could not load comments with this method")
                 return None
 
         try:
@@ -1025,7 +1018,7 @@ class YouTubeCommentScraper:
                 timeout=300,
             )
         except asyncio.TimeoutError:
-            self._progress("yt-dlp timed out")
+            self._progress("Request timed out")
             return []
 
         if not info:
@@ -1035,10 +1028,10 @@ class YouTubeCommentScraper:
         raw_comments = info.get("comments", [])
 
         if not raw_comments:
-            self._progress("yt-dlp found no comments")
+            self._progress("No comments found with this method")
             return []
 
-        self._progress(f"yt-dlp extracted {len(raw_comments)} comment(s)")
+        self._progress(f"Found {len(raw_comments)} comments")
 
         comments = []
         comment_ids_seen = set()
@@ -1145,10 +1138,6 @@ class YouTubeCommentScraper:
         """Last resort: use Playwright to load the page and call InnerTube from
         within the browser context."""
         if not PLAYWRIGHT_AVAILABLE:
-            self._progress("Playwright not installed, skipping Method 3")
-            self._progress(
-                "Install with: pip install playwright && python -m playwright install chromium"
-            )
             return []
 
         comments = []
@@ -1199,7 +1188,7 @@ class YouTubeCommentScraper:
             )
 
             # Navigate to the video page
-            self._progress("Opening video in browser...")
+            self._progress("Loading video...")
             try:
                 await page.goto(
                     video_url, wait_until="domcontentloaded", timeout=45000,
@@ -1215,7 +1204,6 @@ class YouTubeCommentScraper:
                     raise RuntimeError("Could not load YouTube page")
 
             # Extract ytInitialData from the browser
-            self._progress("Extracting initial data...")
             try:
                 initial_data = await page.evaluate("() => window.ytInitialData")
             except Exception:
@@ -1226,7 +1214,6 @@ class YouTubeCommentScraper:
                 continuation = find_comments_continuation(initial_data)
             else:
                 # Scroll down to trigger comment loading
-                self._progress("Scrolling to load comments...")
                 await page.evaluate("window.scrollBy(0, 500)")
                 await page.wait_for_timeout(3000)
 
@@ -1256,7 +1243,7 @@ class YouTubeCommentScraper:
                 self._progress(f"Title: {truncated}")
 
             # Use page.evaluate to call InnerTube API from within the browser
-            self._progress("Fetching comments via browser...")
+            self._progress("Fetching comments...")
             page_num = 0
             consecutive_empty = 0
             last_cursor = None
@@ -1317,7 +1304,7 @@ class YouTubeCommentScraper:
                         continuation,
                     )
                 except Exception as e:
-                    self._progress(f"Browser evaluate error: {_clean_error(e)}")
+                    self._progress("Could not load comments")
                     break
 
                 if not api_result or "_error" in api_result:
@@ -1358,7 +1345,7 @@ class YouTubeCommentScraper:
                 continuation = next_continuation
                 delay.on_success()
 
-                self._progress(f"  Page {page_num}: {len(comments)} comments total")
+                self._progress(f"Found {len(comments)} comments so far...")
 
                 if self.max_comments > 0 and len(comments) >= self.max_comments:
                     comments = comments[: self.max_comments]
@@ -1389,7 +1376,7 @@ class YouTubeCommentScraper:
                     comments.extend(replies)
 
         except Exception as e:
-            self._progress(f"Playwright method error: {_clean_error(e)}")
+            self._progress("Something went wrong loading comments")
         finally:
             try:
                 if browser:
@@ -1429,30 +1416,23 @@ class YouTubeCommentScraper:
         # Normalize URL
         video_url = normalize_youtube_url(video_url)
 
-        limit_text = f"{self.max_comments}" if self.max_comments > 0 else "ALL"
-        self._progress(f"Video ID: {video_id}")
-        self._progress(f"URL: {video_url}")
+        limit_text = f"{self.max_comments}" if self.max_comments > 0 else "all"
+        self._progress(f"Processing: {video_url}")
         self._progress(f"Comment limit: {limit_text}")
-        if deadline:
-            remaining = max(0, int(deadline - time.monotonic()))
-            self._progress(f"Timeout: {remaining}s remaining")
 
-        # Method 1: Direct InnerTube API (fastest, no browser needed)
-        self._progress("Trying direct InnerTube API...")
+        # Method 1: Direct API (fastest, no browser needed)
         comments = await self._scrape_comments_innertube(
             video_url, video_id, input_url, deadline,
         )
 
         # Method 2: yt-dlp (if direct API fails)
         if not comments and (not deadline or time.monotonic() < deadline):
-            self._progress("Trying yt-dlp fallback...")
             comments = await self._scrape_comments_ytdlp(
                 video_url, video_id, input_url, deadline,
             )
 
         # Method 3: Playwright + InnerTube (last resort)
         if not comments and (not deadline or time.monotonic() < deadline):
-            self._progress("Trying browser-based approach...")
             comments = await self._scrape_comments_playwright(
                 video_url, video_id, input_url, deadline,
             )
