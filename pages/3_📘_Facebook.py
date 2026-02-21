@@ -40,6 +40,8 @@ with nav_cols[5]:
         with st.popover("☕ Donate"):
             st.image(str(qr_path), caption="PromptPay", width=200)
 
+st.markdown('<hr class="nav-divider">', unsafe_allow_html=True)
+
 # Page header
 st.markdown('<div class="page-header"><h1>Facebook</h1></div>', unsafe_allow_html=True)
 st.markdown('<p class="page-desc">Scrape comments from Facebook posts, reels, and videos.</p>', unsafe_allow_html=True)

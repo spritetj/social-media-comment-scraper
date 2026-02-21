@@ -37,23 +37,22 @@ with nav_cols[5]:
         with st.popover("☕ Donate"):
             st.image(str(qr_path), caption="PromptPay", width=200)
 
-# Hero section
-st.markdown("")
-st.markdown('<p class="hero-eyebrow">Social Media Toolkit</p>', unsafe_allow_html=True)
-st.markdown(
-    '<h1 class="hero-title">Comment Scraper.</h1>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    '<p class="hero-subtitle">Extract comments from any platform. Fast, simple, powerful.</p>',
-    unsafe_allow_html=True,
-)
+st.markdown('<hr class="nav-divider">', unsafe_allow_html=True)
 
-st.markdown("")
-st.markdown("")
+# Hero section — centered
+st.markdown(
+    """
+    <div class="hero-section">
+        <p class="hero-eyebrow">Social Media Toolkit</p>
+        <h1 class="hero-title">Comment Scraper.</h1>
+        <p class="hero-subtitle">Extract comments from any platform.<br>Fast, simple, powerful.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # Platform cards in 2x2 grid
-col1, col2 = st.columns(2)
+col1, col2 = st.columns(2, gap="medium")
 
 with col1:
     st.markdown(
@@ -66,8 +65,7 @@ with col1:
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Open", key="yt_btn", use_container_width=True):
-        st.switch_page("pages/1_🎬_YouTube.py")
+    st.page_link("pages/1_🎬_YouTube.py", label="Explore YouTube  →", icon=None)
 
     st.markdown("")
 
@@ -81,8 +79,7 @@ with col1:
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Open", key="fb_btn", use_container_width=True):
-        st.switch_page("pages/3_📘_Facebook.py")
+    st.page_link("pages/3_📘_Facebook.py", label="Explore Facebook  →", icon=None)
 
 with col2:
     st.markdown(
@@ -95,8 +92,7 @@ with col2:
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Open", key="tt_btn", use_container_width=True):
-        st.switch_page("pages/2_🎵_TikTok.py")
+    st.page_link("pages/2_🎵_TikTok.py", label="Explore TikTok  →", icon=None)
 
     st.markdown("")
 
@@ -110,11 +106,9 @@ with col2:
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Open", key="ig_btn", use_container_width=True):
-        st.switch_page("pages/4_📷_Instagram.py")
+    st.page_link("pages/4_📷_Instagram.py", label="Explore Instagram  →", icon=None)
 
 # Footer
-st.markdown("")
 st.markdown(
     '<div class="pro-footer">Built with care. All platforms supported.</div>',
     unsafe_allow_html=True,
