@@ -1,24 +1,24 @@
 /* ============================================
-   Apple-Inspired Theme — Cloud Dancer Palette
+   Cloud Dancer Light Theme
    ============================================ */
 
 /* --- CSS Variables --- */
 :root {
-    --bg-primary: #121212;
-    --bg-elevated: #1C1C1E;
-    --bg-secondary: #2C2C2E;
-    --bg-tertiary: #3A3A3C;
-    --accent: #F0EEE9;
-    --accent-hover: #FFFFFF;
-    --accent-soft: rgba(240,238,233,0.10);
-    --accent-muted: rgba(240,238,233,0.6);
-    --text-primary: #F0EEE9;
-    --text-secondary: #8E8E93;
-    --text-tertiary: #48484A;
-    --success: #30D158;
-    --error: #FF453A;
-    --border: rgba(240,238,233,0.08);
-    --border-hover: rgba(240,238,233,0.18);
+    --bg-primary: #F0EEE9;
+    --bg-elevated: #FFFFFF;
+    --bg-secondary: #E5E3DE;
+    --bg-tertiary: #D5D3CE;
+    --accent: #1C1C1E;
+    --accent-hover: #000000;
+    --accent-soft: rgba(28,28,30,0.06);
+    --accent-muted: rgba(28,28,30,0.5);
+    --text-primary: #1C1C1E;
+    --text-secondary: #6B6B70;
+    --text-tertiary: #A0A0A5;
+    --success: #34C759;
+    --error: #FF3B30;
+    --border: rgba(0,0,0,0.08);
+    --border-hover: rgba(0,0,0,0.16);
     --font-stack: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
 }
 
@@ -88,7 +88,7 @@ h1 {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--accent-muted);
+    color: var(--text-secondary);
     margin-bottom: 0.5rem;
     animation: fadeInUp 0.5s ease both;
 }
@@ -127,7 +127,7 @@ h1 {
 .platform-card:hover {
     border-color: var(--border-hover);
     transform: translateY(-3px);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
 }
 
 .platform-card-icon {
@@ -141,10 +141,10 @@ h1 {
     margin-bottom: 0.75rem;
 }
 
-.platform-card-icon.yt { background: rgba(255,0,0,0.12); }
-.platform-card-icon.tt { background: rgba(0,0,0,0.3); border: 1px solid var(--border); }
-.platform-card-icon.fb { background: rgba(24,119,242,0.12); }
-.platform-card-icon.ig { background: rgba(225,48,108,0.12); }
+.platform-card-icon.yt { background: rgba(255,0,0,0.10); }
+.platform-card-icon.tt { background: rgba(0,0,0,0.06); border: 1px solid var(--border); }
+.platform-card-icon.fb { background: rgba(24,119,242,0.10); }
+.platform-card-icon.ig { background: rgba(225,48,108,0.10); }
 
 .platform-card h3 {
     font-size: 1.15rem;
@@ -187,19 +187,6 @@ h1 {
     margin-bottom: 1.5rem;
 }
 
-.page-back {
-    font-size: 0.85rem;
-    color: var(--accent-muted);
-    text-decoration: none;
-    margin-bottom: 1rem;
-    display: inline-block;
-    animation: fadeInUp 0.5s ease both;
-}
-
-.page-back:hover {
-    color: var(--accent);
-}
-
 /* ============================================
    Metric Cards
    ============================================ */
@@ -232,7 +219,7 @@ h1 {
 }
 
 /* ============================================
-   Buttons — Primary (Cloud Dancer fill)
+   Buttons — Primary (dark fill on light bg)
    ============================================ */
 .stButton > button {
     border-radius: 980px;
@@ -246,7 +233,7 @@ h1 {
 
 .stButton > button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     border-color: var(--border-hover);
 }
 
@@ -258,7 +245,7 @@ h1 {
 .stButton > button[kind="primary"],
 .stButton > button[data-testid="stBaseButton-primary"] {
     background: var(--accent) !important;
-    color: #000000 !important;
+    color: #F0EEE9 !important;
     border: none !important;
     font-weight: 700;
 }
@@ -266,7 +253,7 @@ h1 {
 .stButton > button[kind="primary"]:hover,
 .stButton > button[data-testid="stBaseButton-primary"]:hover {
     background: var(--accent-hover) !important;
-    box-shadow: 0 6px 20px rgba(240,238,233,0.15);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
 }
 
 /* Download Buttons — pill outline */
@@ -409,12 +396,12 @@ section[data-testid="stSidebar"] .stMarkdown h3 {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(240,238,233,0.15);
+    background: rgba(0,0,0,0.12);
     border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(240,238,233,0.25);
+    background: rgba(0,0,0,0.20);
 }
 
 /* ============================================
@@ -448,8 +435,13 @@ section[data-testid="stSidebar"] .stMarkdown h3 {
 }
 
 [data-testid="stPageLink"][aria-current="page"] {
-    background: var(--accent-soft);
-    border-color: var(--accent-muted);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #F0EEE9;
+}
+
+[data-testid="stPageLink"][aria-current="page"] a {
+    color: #F0EEE9 !important;
 }
 
 /* ============================================

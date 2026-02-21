@@ -22,16 +22,8 @@ css_path = Path(__file__).parent.parent / "assets" / "style.css"
 if css_path.exists():
     st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 
-# Sidebar — minimal
-with st.sidebar:
-    st.markdown("### Comment Scraper")
-    qr_path = Path(__file__).parent.parent / "assets" / "qr_payment.jpeg"
-    if qr_path.exists():
-        with st.popover("Donate"):
-            st.image(str(qr_path), caption="PromptPay", width=200)
-
 # Navigation bar
-nav_cols = st.columns(5)
+nav_cols = st.columns([1, 1, 1, 1, 1, 1])
 with nav_cols[0]:
     st.page_link("Home.py", label="Home", icon="🏠")
 with nav_cols[1]:
@@ -42,6 +34,11 @@ with nav_cols[3]:
     st.page_link("pages/3_📘_Facebook.py", label="Facebook", icon="📘")
 with nav_cols[4]:
     st.page_link("pages/4_📷_Instagram.py", label="Instagram", icon="📷")
+with nav_cols[5]:
+    qr_path = Path(__file__).parent.parent / "assets" / "qr_payment.jpeg"
+    if qr_path.exists():
+        with st.popover("☕ Donate"):
+            st.image(str(qr_path), caption="PromptPay", width=200)
 
 # Page header
 st.markdown('<div class="page-header"><h1>Facebook</h1></div>', unsafe_allow_html=True)
