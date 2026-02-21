@@ -1,20 +1,46 @@
 /* ============================================
-   Apple.com Clone — Cloud Dancer Accent
+   Apple Platform Design — Comment Scraper
+   Inspired by iCloud.com, developer.apple.com,
+   and App Store Connect. Clean workspace
+   aesthetic, not a marketing landing page.
    ============================================ */
 
 :root {
-    --color-fill: #FFFFFF;
-    --color-tile: #F0EEE9;
-    --color-tile-dark: #1D1D1F;
-    --color-text: #1D1D1F;
-    --color-text-secondary: #6E6E73;
-    --color-text-on-dark: #F5F5F7;
-    --color-link: #0071E3;
-    --color-link-hover: #0077ED;
-    --color-nav-bg: rgba(255,255,255,0.8);
-    --color-separator: #D2D2D7;
-    --font-stack: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    --font-display: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    /* Surfaces */
+    --bg: #FFFFFF;
+    --bg-secondary: #F5F5F7;
+    --surface: #FFFFFF;
+
+    /* Text */
+    --text-primary: #1D1D1F;
+    --text-secondary: #86868B;
+    --text-tertiary: #AEAEB2;
+
+    /* Accent */
+    --accent: #0071E3;
+    --accent-hover: #0077ED;
+
+    /* Borders & Depth */
+    --border: #D2D2D7;
+    --border-subtle: #E8E8ED;
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 6px 20px rgba(0,0,0,0.035);
+    --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.07), 0 12px 32px rgba(0,0,0,0.055);
+
+    /* Semantic */
+    --success: #34C759;
+    --warning: #FF9F0A;
+    --error: #FF3B30;
+
+    /* Radius */
+    --r-sm: 10px;
+    --r-md: 14px;
+    --r-lg: 20px;
+    --r-pill: 980px;
+
+    /* Typography */
+    --font-body: "SF Pro Text","SF Pro Icons","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --font-display: "SF Pro Display","SF Pro Icons","Helvetica Neue",Helvetica,Arial,sans-serif;
 }
 
 /* ============================================
@@ -33,19 +59,19 @@ div[data-testid="stStatusWidget"] {
    Base
    ============================================ */
 .stApp {
-    font-family: var(--font-stack);
-    background: var(--color-fill) !important;
+    font-family: var(--font-body);
+    background: var(--bg) !important;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4 {
     font-family: var(--font-display);
-    color: var(--color-text);
+    color: var(--text-primary);
 }
 
 /* ============================================
-   Navigation — Apple-style compact centered
+   Navigation — Apple platform top bar
    ============================================ */
 [data-testid="stPageLink"] {
     background: none !important;
@@ -59,326 +85,294 @@ h1, h2, h3, h4 {
 }
 
 [data-testid="stPageLink"] a {
-    font-size: 0.75rem !important;
+    font-size: 0.8rem !important;
     font-weight: 400 !important;
-    color: rgba(0,0,0,0.8) !important;
+    color: var(--text-secondary) !important;
     letter-spacing: 0 !important;
     text-decoration: none !important;
-    padding: 0 !important;
-    transition: color 0.3s ease;
+    padding: 6px 0 !important;
+    transition: color 0.2s ease;
     display: inline-block;
 }
 
 [data-testid="stPageLink"]:hover a {
-    color: var(--color-text) !important;
+    color: var(--text-primary) !important;
 }
 
 [data-testid="stPageLink"][aria-current="page"] a {
     font-weight: 600 !important;
-    color: var(--color-text) !important;
+    color: var(--text-primary) !important;
 }
 
-/* Nav divider */
+/* Nav separator */
 .nav-divider {
     border: none;
-    border-top: 1px solid var(--color-separator);
-    margin: 0 0 0 0;
-    opacity: 0.5;
+    border-top: 1px solid var(--border-subtle);
+    margin: 0;
+    opacity: 0.6;
 }
 
 /* ============================================
-   Donate popover — Apple-style minimal
+   Donate Popover
    ============================================ */
 [data-testid="stPopover"] button {
-    font-size: 0.75rem !important;
+    font-size: 0.8rem !important;
     font-weight: 400 !important;
     border: none !important;
     background: transparent !important;
-    color: rgba(0,0,0,0.8) !important;
+    color: var(--text-secondary) !important;
     padding: 0 !important;
     border-radius: 0 !important;
 }
 
 [data-testid="stPopover"] button:hover {
-    color: var(--color-text) !important;
+    color: var(--text-primary) !important;
     background: transparent !important;
 }
 
 /* ============================================
-   Hero Section — Apple-scale centered
+   Dashboard Header — compact, functional
+   Replaces the marketing "hero" section.
    ============================================ */
-.hero-section {
+.dash-header {
+    padding: 2.5rem 0 1.75rem 0;
     text-align: center;
-    padding: 4rem 0 3rem 0;
 }
 
-.hero-eyebrow {
-    font-family: var(--font-stack);
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--color-text-secondary);
-    margin-bottom: 0;
-}
-
-.hero-title {
+.dash-title {
     font-family: var(--font-display);
-    font-size: clamp(2.8rem, 5vw, 4rem);
+    font-size: 1.85rem;
     font-weight: 700;
-    color: var(--color-text);
-    letter-spacing: -0.04em;
-    line-height: 1.05;
-    margin: 0.25rem 0 0.6rem 0;
+    color: var(--text-primary);
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    margin: 0 0 0.35rem 0;
 }
 
-.hero-subtitle {
-    font-family: var(--font-stack);
-    font-size: 1.15rem;
-    color: var(--color-text-secondary);
+.dash-subtitle {
+    font-size: 1rem;
+    color: var(--text-secondary);
     font-weight: 400;
     line-height: 1.5;
-    margin: 0 auto;
+    margin: 0;
 }
 
 /* ============================================
-   CTA Buttons — Apple-style pill
+   Platform Cards — white cards with shadow,
+   Apple workspace style (iCloud grid).
    ============================================ */
-.cta-row {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-    margin-top: 1.5rem;
-}
-
-.cta-filled {
-    display: inline-block;
-    background: var(--color-link);
-    color: #FFFFFF;
-    font-size: 1rem;
-    font-weight: 400;
-    border-radius: 980px;
-    padding: 0.65rem 1.75rem;
-    text-decoration: none;
-    transition: background 0.3s ease;
-    font-family: var(--font-stack);
-    cursor: pointer;
-}
-
-.cta-filled:hover {
-    background: var(--color-link-hover);
-    color: #FFFFFF;
-    text-decoration: none;
-}
-
-.cta-outline {
-    display: inline-block;
-    background: transparent;
-    color: var(--color-link);
-    font-size: 1rem;
-    font-weight: 400;
-    border-radius: 980px;
-    padding: 0.6rem 1.75rem;
-    text-decoration: none;
-    border: 1.5px solid var(--color-link);
-    transition: all 0.3s ease;
-    font-family: var(--font-stack);
-    cursor: pointer;
-}
-
-.cta-outline:hover {
-    background: var(--color-link);
-    color: #FFFFFF;
-    text-decoration: none;
-}
-
-/* ============================================
-   Platform Tiles — Apple product card style
-   ============================================ */
-.platform-tile {
-    background: var(--color-tile);
-    border-radius: 18px;
-    padding: 2.5rem 2rem;
-    min-height: 260px;
+.platform-card {
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-lg);
+    padding: 2rem 1.75rem 1.5rem;
+    min-height: 210px;
     text-align: center;
-    overflow: hidden;
-    transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+    box-shadow: var(--shadow-card);
+    transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1),
+                box-shadow 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    animation: cardIn 0.45s ease forwards;
 }
 
-.platform-tile:hover {
-    transform: scale(1.01);
+.platform-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card-hover);
 }
 
-.platform-tile.tile-dark {
-    background: var(--color-tile-dark);
-}
+.platform-card.delay-1 { animation-delay: 0.00s; }
+.platform-card.delay-2 { animation-delay: 0.07s; }
+.platform-card.delay-3 { animation-delay: 0.14s; }
+.platform-card.delay-4 { animation-delay: 0.21s; }
 
-.platform-tile.tile-dark h3,
-.platform-tile.tile-dark p {
-    color: var(--color-text-on-dark);
-}
-
-.platform-tile.tile-dark p {
-    color: #A1A1A6;
-}
-
-.tile-icon {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
+.card-icon {
+    font-size: 2.25rem;
+    margin-bottom: 0.75rem;
     display: block;
 }
 
-.platform-tile h3 {
+.platform-card h3 {
     font-family: var(--font-display);
-    font-size: 1.75rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--color-text);
-    margin-bottom: 0.5rem;
+    font-size: 1.3rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    margin: 0 0 0.35rem 0;
 }
 
-.platform-tile p {
-    font-size: 1rem;
-    color: var(--color-text-secondary);
+.platform-card p {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
     font-weight: 400;
-    line-height: 1.5;
-    margin-bottom: 0;
+    line-height: 1.45;
+    margin: 0;
+    flex-grow: 1;
 }
 
-/* "Learn more >" links */
-.tile-link {
-    color: var(--color-link);
-    font-size: 1rem;
-    font-weight: 400;
-    text-decoration: none;
-    transition: text-decoration 0.2s ease;
+/* Badge inside card for auth status */
+.card-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: var(--r-pill);
+    margin-top: 0.6rem;
 }
 
-.tile-link:hover {
-    text-decoration: underline;
+.card-badge.badge-open {
+    color: var(--success);
+    background: rgba(52, 199, 89, 0.08);
+    border: 1px solid rgba(52, 199, 89, 0.2);
 }
 
-/* Override st.page_link below tiles — Apple blue style */
+.card-badge.badge-auth {
+    color: var(--text-tertiary);
+    background: rgba(174, 174, 178, 0.08);
+    border: 1px solid rgba(174, 174, 178, 0.2);
+}
+
+/* "Get started >" links below cards */
 .tile-cta [data-testid="stPageLink"] a {
-    color: var(--color-link) !important;
-    font-size: 1rem !important;
+    color: var(--accent) !important;
+    font-size: 0.88rem !important;
     font-weight: 400 !important;
 }
 
 .tile-cta [data-testid="stPageLink"]:hover a {
     text-decoration: underline !important;
-    color: var(--color-link-hover) !important;
+    color: var(--accent-hover) !important;
+}
+
+@keyframes cardIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* ============================================
-   Streamlit column gap override for 12px grid
+   Column gap — slightly wider for card shadows
    ============================================ */
 [data-testid="stHorizontalBlock"] {
-    gap: 12px !important;
+    gap: 16px !important;
 }
 
 /* ============================================
-   Buttons — Scraper pages
+   Buttons — Apple platform style
    ============================================ */
 .stButton > button {
-    border-radius: 980px;
-    font-weight: 400;
-    font-size: 1rem;
+    border-radius: var(--r-pill);
+    font-weight: 500;
+    font-size: 0.95rem;
     letter-spacing: 0;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     border: none;
-    padding: 0.6rem 1.5rem;
-    font-family: var(--font-stack);
+    padding: 0.55rem 1.5rem;
+    font-family: var(--font-body);
 }
 
+/* Primary */
 .stButton > button[kind="primary"],
 .stButton > button[data-testid="stBaseButton-primary"] {
-    background: var(--color-link) !important;
+    background: var(--accent) !important;
     color: #FFFFFF !important;
     border: none !important;
+    box-shadow: 0 1px 3px rgba(0, 113, 227, 0.18);
 }
 
 .stButton > button[kind="primary"]:hover,
 .stButton > button[data-testid="stBaseButton-primary"]:hover {
-    background: var(--color-link-hover) !important;
+    background: var(--accent-hover) !important;
+    box-shadow: 0 2px 8px rgba(0, 113, 227, 0.22);
 }
 
-/* Secondary buttons */
+/* Secondary */
 .stButton > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]) {
     background: transparent;
-    color: var(--color-link);
-    border: 1.5px solid var(--color-link);
+    color: var(--accent);
+    border: 1.5px solid var(--accent);
 }
 
 .stButton > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]):hover {
-    background: var(--color-link);
+    background: var(--accent);
     color: #FFFFFF;
 }
 
-/* Download Buttons */
+/* Download buttons */
 .stDownloadButton > button {
     width: 100%;
-    border-radius: 980px;
-    border: 1.5px solid var(--color-link);
-    font-weight: 400;
-    font-size: 1rem;
-    transition: all 0.3s ease;
+    border-radius: var(--r-pill);
+    border: 1.5px solid var(--accent);
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
     background: transparent;
-    color: var(--color-link);
-    font-family: var(--font-stack);
+    color: var(--accent);
+    font-family: var(--font-body);
 }
 
 .stDownloadButton > button:hover {
-    background: var(--color-link);
+    background: var(--accent);
     color: #FFFFFF;
 }
 
 /* ============================================
-   Page Header (scraper pages)
+   Page Header — scraper pages
+   Compact workspace heading, not marketing.
    ============================================ */
 .page-header {
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.15rem;
 }
 
 .page-header h1 {
     font-family: var(--font-display);
-    font-size: clamp(2rem, 4vw, 3rem);
+    font-size: 1.85rem;
     font-weight: 700;
-    letter-spacing: -0.04em;
-    margin-bottom: 0.25rem;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.2rem;
 }
 
 .page-desc {
-    color: var(--color-text-secondary);
-    font-size: 1.05rem;
-    margin-bottom: 2rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-bottom: 1.75rem;
     font-weight: 400;
 }
 
 /* ============================================
-   Metric Cards
+   Metric Cards — white + shadow
    ============================================ */
 [data-testid="stMetric"] {
-    background: var(--color-tile);
-    border: none;
-    border-radius: 18px;
-    padding: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-md);
+    padding: 1.1rem;
     text-align: center;
+    box-shadow: var(--shadow-xs);
 }
 
 [data-testid="stMetricValue"] {
     font-family: var(--font-display);
-    font-size: 2rem;
+    font-size: 1.75rem;
     font-weight: 700;
-    color: var(--color-text);
+    color: var(--text-primary);
     letter-spacing: -0.03em;
 }
 
 [data-testid="stMetricLabel"] {
-    color: var(--color-text-secondary);
-    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     font-weight: 500;
 }
 
@@ -386,96 +380,99 @@ h1, h2, h3, h4 {
    Input Areas
    ============================================ */
 .stTextArea textarea {
-    background: var(--color-fill);
-    border: 1px solid var(--color-separator);
-    border-radius: 12px;
-    font-size: 0.95rem;
-    color: var(--color-text);
-    font-family: var(--font-stack);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-family: var(--font-body);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .stTextArea textarea:focus {
-    border-color: var(--color-link);
-    box-shadow: 0 0 0 4px rgba(0,113,227,0.12);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.1);
 }
 
 .stTextArea textarea::placeholder {
-    color: #86868B;
+    color: var(--text-tertiary);
 }
 
 .stTextInput input {
-    background: var(--color-fill);
-    border: 1px solid var(--color-separator);
-    border-radius: 12px;
-    color: var(--color-text);
-    font-family: var(--font-stack);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    color: var(--text-primary);
+    font-family: var(--font-body);
     transition: border-color 0.2s ease;
 }
 
 .stTextInput input:focus {
-    border-color: var(--color-link);
-    box-shadow: 0 0 0 4px rgba(0,113,227,0.12);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.1);
 }
 
 /* ============================================
-   Expander
+   Expander — clean bordered panel
    ============================================ */
 [data-testid="stExpander"] {
-    background: var(--color-tile);
-    border: none;
-    border-radius: 18px;
+    background: var(--bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-md);
+    box-shadow: none;
 }
 
 [data-testid="stExpander"] summary {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--color-text);
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: var(--text-primary);
 }
 
 /* ============================================
    Data Table
    ============================================ */
 [data-testid="stDataFrame"] {
-    border-radius: 18px;
+    border-radius: var(--r-md);
     overflow: hidden;
+    border: 1px solid var(--border-subtle);
 }
 
 .stDataFrame {
     border: none;
-    border-radius: 18px;
+    border-radius: var(--r-md);
 }
 
 /* ============================================
    Sidebar
    ============================================ */
 section[data-testid="stSidebar"] {
-    background: var(--color-fill);
+    background: var(--bg);
 }
 
 /* ============================================
    Selectbox / Slider
    ============================================ */
 .stSelectbox [data-baseweb="select"] {
-    background: var(--color-fill);
+    background: var(--bg);
 }
 
 /* ============================================
-   File uploader
+   File Uploader
    ============================================ */
 [data-testid="stFileUploader"] {
-    border-radius: 12px;
+    border-radius: var(--r-sm);
 }
 
 /* ============================================
-   Footer
+   Footer — minimal platform footer
    ============================================ */
-.pro-footer {
+.platform-footer {
     text-align: center;
-    padding: 4rem 0 2rem 0;
-    color: var(--color-text-secondary);
+    padding: 3rem 0 1.5rem 0;
+    color: var(--text-tertiary);
     font-size: 0.75rem;
     font-weight: 400;
+    letter-spacing: 0.01em;
 }
 
 /* ============================================
@@ -490,7 +487,7 @@ section[data-testid="stSidebar"] {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(0,0,0,0.15);
+    background: rgba(0, 0, 0, 0.12);
     border-radius: 3px;
 }
 
@@ -498,50 +495,49 @@ section[data-testid="stSidebar"] {
    Alert overrides
    ============================================ */
 .stAlert {
-    border-radius: 12px;
+    border-radius: var(--r-sm);
 }
 
 /* ============================================
-   Mobile — Tablet
+   Responsive — Tablet
    ============================================ */
 @media (max-width: 768px) {
-    .hero-section {
-        padding: 2.5rem 0 2rem 0;
+    .dash-header {
+        padding: 2rem 0 1.25rem 0;
     }
-    .hero-title {
-        font-size: 2.6rem;
+    .dash-title {
+        font-size: 1.6rem;
     }
-    .platform-tile {
-        min-height: 200px;
-        padding: 2rem 1.5rem;
+    .platform-card {
+        min-height: 175px;
+        padding: 1.5rem 1.25rem 1.25rem;
     }
-    .platform-tile h3 {
-        font-size: 1.4rem;
+    .platform-card h3 {
+        font-size: 1.15rem;
+    }
+    .page-header h1 {
+        font-size: 1.6rem;
     }
 }
 
 /* ============================================
-   Mobile — Phone
+   Responsive — Phone
    ============================================ */
 @media (max-width: 480px) {
-    .hero-title {
-        font-size: 2rem;
+    .dash-title {
+        font-size: 1.4rem;
     }
-    .hero-subtitle {
-        font-size: 1rem;
+    .dash-subtitle {
+        font-size: 0.9rem;
     }
-    .platform-tile {
-        min-height: 180px;
-        padding: 1.5rem 1.25rem;
+    .platform-card {
+        min-height: 150px;
+        padding: 1.25rem 1rem 1rem;
     }
-    .platform-tile h3 {
-        font-size: 1.25rem;
-    }
-    .cta-row {
-        flex-direction: column;
-        align-items: center;
+    .platform-card h3 {
+        font-size: 1.05rem;
     }
     .page-header h1 {
-        font-size: 2rem;
+        font-size: 1.4rem;
     }
 }

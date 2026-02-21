@@ -747,8 +747,11 @@ class TikTokCommentScraper:
     # ======================================================================
 
     async def _resolve_url(self, url: str) -> str:
-        """Resolve short TikTok URLs (vm.tiktok.com) to full URLs."""
-        if "vm.tiktok.com" in url or "/t/" in url:
+        """Resolve short/redirect TikTok URLs (vm.tiktok.com, vt.tiktok.com, etc.) to full URLs."""
+        # If the URL doesn't already have a direct /video/DIGITS or /photo/DIGITS path,
+        # it's likely a short/redirect URL that needs resolution.
+        has_direct_id = bool(re.search(r"/(?:video|photo)/\d+", url))
+        if not has_direct_id and "tiktok.com" in url:
             try:
                 async with aiohttp.ClientSession(
                     headers={"User-Agent": USER_AGENT}
