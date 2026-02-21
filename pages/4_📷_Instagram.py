@@ -22,22 +22,22 @@ css_path = Path(__file__).parent.parent / "assets" / "style.css"
 if css_path.exists():
     st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 
-# Navigation bar
-nav_cols = st.columns([1, 1, 1, 1, 1, 1])
-with nav_cols[0]:
-    st.page_link("Home.py", label="Home", icon="🏠")
-with nav_cols[1]:
-    st.page_link("pages/1_🎬_YouTube.py", label="YouTube", icon="🎬")
-with nav_cols[2]:
-    st.page_link("pages/2_🎵_TikTok.py", label="TikTok", icon="🎵")
-with nav_cols[3]:
-    st.page_link("pages/3_📘_Facebook.py", label="Facebook", icon="📘")
-with nav_cols[4]:
-    st.page_link("pages/4_📷_Instagram.py", label="Instagram", icon="📷")
-with nav_cols[5]:
+# Navigation — compact centered
+_, n1, n2, n3, n4, n5, n6, _ = st.columns([3, 1, 1, 1, 1, 1, 0.8, 3])
+with n1:
+    st.page_link("Home.py", label="Home")
+with n2:
+    st.page_link("pages/1_🎬_YouTube.py", label="YouTube")
+with n3:
+    st.page_link("pages/2_🎵_TikTok.py", label="TikTok")
+with n4:
+    st.page_link("pages/3_📘_Facebook.py", label="Facebook")
+with n5:
+    st.page_link("pages/4_📷_Instagram.py", label="Instagram")
+with n6:
     qr_path = Path(__file__).parent.parent / "assets" / "qr_payment.jpeg"
     if qr_path.exists():
-        with st.popover("☕ Donate"):
+        with st.popover("Donate"):
             st.image(str(qr_path), caption="PromptPay", width=200)
 
 st.markdown('<hr class="nav-divider">', unsafe_allow_html=True)
