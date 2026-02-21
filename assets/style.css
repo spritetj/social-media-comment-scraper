@@ -1,247 +1,389 @@
-/* Social Media Comment Scraper — Professional Theme */
+/* ============================================
+   Apple-Inspired Theme — Cloud Dancer Palette
+   ============================================ */
+
+/* --- CSS Variables --- */
+:root {
+    --bg-primary: #000000;
+    --bg-elevated: #1C1C1E;
+    --bg-secondary: #2C2C2E;
+    --bg-tertiary: #3A3A3C;
+    --accent: #F0EEE9;
+    --accent-hover: #FFFFFF;
+    --accent-soft: rgba(240,238,233,0.10);
+    --accent-muted: rgba(240,238,233,0.6);
+    --text-primary: #F0EEE9;
+    --text-secondary: #8E8E93;
+    --text-tertiary: #48484A;
+    --success: #30D158;
+    --error: #FF453A;
+    --border: rgba(240,238,233,0.08);
+    --border-hover: rgba(240,238,233,0.18);
+    --font-stack: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+}
 
 /* ============================================
-   Hide ALL Streamlit Branding
+   Hide Streamlit Branding
    ============================================ */
-#MainMenu {visibility: hidden !important;}
-footer {visibility: hidden !important;}
-header {visibility: hidden !important;}
-[data-testid="stDecoration"] {display: none !important;}
-.stDeployButton {display: none !important;}
-[data-testid="manage-app-button"] {display: none !important;}
-[data-testid="stToolbar"] {display: none !important;}
-div[data-testid="stStatusWidget"] {display: none !important;}
+#MainMenu { visibility: hidden !important; }
+footer { visibility: hidden !important; }
+header { visibility: hidden !important; }
+[data-testid="stDecoration"] { display: none !important; }
+.stDeployButton { display: none !important; }
+[data-testid="manage-app-button"] { display: none !important; }
+[data-testid="stToolbar"] { display: none !important; }
+div[data-testid="stStatusWidget"] { display: none !important; }
 
 /* ============================================
    Typography & Base
    ============================================ */
 .stApp {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-stack);
+    background: var(--bg-primary);
 }
 
 h1, h2, h3, h4 {
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
     font-weight: 700;
+    color: var(--text-primary);
+}
+
+h1 {
+    letter-spacing: -0.04em;
+    font-weight: 800;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 /* ============================================
    Hero Section
    ============================================ */
+.hero-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent-muted);
+    margin-bottom: 0.5rem;
+    animation: fadeInUp 0.5s ease both;
+}
+
 .hero-title {
-    font-size: 2.8rem;
+    font-size: 3.2rem;
     font-weight: 800;
-    background: linear-gradient(135deg, #6C63FF 0%, #B06CFF 50%, #6C63FF 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 0.3rem;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
+    color: var(--text-primary);
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    margin-bottom: 0.5rem;
+    animation: fadeInUp 0.5s ease 0.1s both;
+}
+
+.hero-subtitle {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+    line-height: 1.5;
+    max-width: 480px;
+    animation: fadeInUp 0.5s ease 0.2s both;
 }
 
 /* ============================================
-   Glass-morphism Platform Cards
+   Platform Cards
    ============================================ */
 .platform-card {
-    background: rgba(30, 30, 50, 0.6);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(108, 99, 255, 0.15);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
     border-radius: 16px;
-    padding: 1.6rem;
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    height: 100%;
-    position: relative;
-    overflow: hidden;
-}
-
-.platform-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, rgba(108, 99, 255, 0.5), transparent);
-    opacity: 0;
-    transition: opacity 0.35s ease;
+    padding: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: fadeInUp 0.5s ease both;
 }
 
 .platform-card:hover {
-    border-color: rgba(108, 99, 255, 0.4);
-    transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(108, 99, 255, 0.12),
-                0 4px 12px rgba(0, 0, 0, 0.2);
+    border-color: var(--border-hover);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
 }
 
-.platform-card:hover::before {
-    opacity: 1;
+.platform-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin-bottom: 0.75rem;
 }
+
+.platform-card-icon.yt { background: rgba(255,0,0,0.12); }
+.platform-card-icon.tt { background: rgba(0,0,0,0.3); border: 1px solid var(--border); }
+.platform-card-icon.fb { background: rgba(24,119,242,0.12); }
+.platform-card-icon.ig { background: rgba(225,48,108,0.12); }
 
 .platform-card h3 {
-    font-size: 1.3rem;
-    margin-bottom: 0.6rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+    font-size: 1.15rem;
+    margin-bottom: 0.35rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
 }
 
 .platform-card p {
-    color: #b0b0c0;
-    font-size: 0.92rem;
-    line-height: 1.55;
-    margin-bottom: 0.4rem;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.5;
+    margin-bottom: 0;
+}
+
+/* Staggered fade for cards */
+.platform-card:nth-child(1) { animation-delay: 0.15s; }
+.platform-card:nth-child(2) { animation-delay: 0.25s; }
+.platform-card:nth-child(3) { animation-delay: 0.35s; }
+.platform-card:nth-child(4) { animation-delay: 0.45s; }
+
+/* ============================================
+   Page Header (scraper pages)
+   ============================================ */
+.page-header {
+    animation: fadeInUp 0.5s ease both;
+    margin-bottom: 0.25rem;
+}
+
+.page-header h1 {
+    font-size: 2.2rem;
+    margin-bottom: 0.25rem;
+}
+
+.page-desc {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    animation: fadeInUp 0.5s ease 0.1s both;
+    margin-bottom: 1.5rem;
+}
+
+.page-back {
+    font-size: 0.85rem;
+    color: var(--accent-muted);
+    text-decoration: none;
+    margin-bottom: 1rem;
+    display: inline-block;
+    animation: fadeInUp 0.5s ease both;
+}
+
+.page-back:hover {
+    color: var(--accent);
 }
 
 /* ============================================
-   Metric Cards with Gradient Borders
+   Metric Cards
    ============================================ */
 [data-testid="stMetric"] {
-    background: rgba(30, 30, 50, 0.5);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(108, 99, 255, 0.2);
-    border-radius: 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 14px;
     padding: 1rem;
     text-align: center;
     transition: all 0.3s ease;
+    animation: scaleIn 0.4s ease both;
 }
 
 [data-testid="stMetric"]:hover {
-    border-color: rgba(108, 99, 255, 0.4);
-    box-shadow: 0 0 20px rgba(108, 99, 255, 0.08);
+    border-color: var(--border-hover);
 }
 
 [data-testid="stMetricValue"] {
-    font-size: 1.6rem;
+    font-size: 1.7rem;
     font-weight: 800;
-    background: linear-gradient(135deg, #6C63FF, #B06CFF);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 /* ============================================
-   Buttons
+   Buttons — Primary (Cloud Dancer fill)
    ============================================ */
 .stButton > button {
-    border-radius: 10px;
+    border-radius: 980px;
     font-weight: 600;
+    font-size: 0.9rem;
     letter-spacing: 0.01em;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 1px solid rgba(108, 99, 255, 0.3);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1.5rem;
 }
 
 .stButton > button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 15px rgba(108, 99, 255, 0.25);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    border-color: var(--border-hover);
 }
 
-.stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #6C63FF, #8B5CF6);
-    border: none;
+.stButton > button:active {
+    transform: scale(0.97);
+    transition: transform 0.1s ease;
 }
 
-.stButton > button[kind="primary"]:hover {
-    background: linear-gradient(135deg, #7C73FF, #9B6CF6);
-    box-shadow: 0 6px 20px rgba(108, 99, 255, 0.35);
+.stButton > button[kind="primary"],
+.stButton > button[data-testid="stBaseButton-primary"] {
+    background: var(--accent) !important;
+    color: #000000 !important;
+    border: none !important;
+    font-weight: 700;
 }
 
-/* Download Buttons */
+.stButton > button[kind="primary"]:hover,
+.stButton > button[data-testid="stBaseButton-primary"]:hover {
+    background: var(--accent-hover) !important;
+    box-shadow: 0 6px 20px rgba(240,238,233,0.15);
+}
+
+/* Download Buttons — pill outline */
 .stDownloadButton > button {
     width: 100%;
-    border-radius: 10px;
-    border: 1px solid rgba(108, 99, 255, 0.3);
+    border-radius: 980px;
+    border: 1px solid var(--border-hover);
     font-weight: 600;
+    font-size: 0.88rem;
     transition: all 0.3s ease;
+    background: transparent;
+    color: var(--text-primary);
 }
 
 .stDownloadButton > button:hover {
-    border-color: rgba(108, 99, 255, 0.6);
-    box-shadow: 0 4px 15px rgba(108, 99, 255, 0.15);
+    border-color: var(--accent-muted);
+    background: var(--accent-soft);
+    transform: translateY(-1px);
+}
+
+.stDownloadButton > button:active {
+    transform: scale(0.97);
 }
 
 /* ============================================
    Input Areas
    ============================================ */
 .stTextArea textarea {
-    background: rgba(20, 20, 35, 0.7);
-    border: 1px solid rgba(108, 99, 255, 0.2);
-    border-radius: 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
     font-size: 0.9rem;
-    transition: border-color 0.3s ease;
+    color: var(--text-primary);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .stTextArea textarea:focus {
-    border-color: rgba(108, 99, 255, 0.6);
-    box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.1);
+    border-color: var(--accent-muted);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.stTextArea textarea::placeholder {
+    color: var(--text-tertiary);
+}
+
+/* Text inputs */
+.stTextInput input {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    transition: border-color 0.3s ease;
+}
+
+.stTextInput input:focus {
+    border-color: var(--accent-muted);
+    box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 /* ============================================
-   Status / Progress Display
+   Expander (Settings, Auth)
    ============================================ */
 [data-testid="stExpander"] {
-    background: rgba(20, 20, 35, 0.5);
-    border: 1px solid rgba(108, 99, 255, 0.15);
-    border-radius: 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+
+[data-testid="stExpander"] summary {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
 }
 
 /* ============================================
    Data Table
    ============================================ */
 [data-testid="stDataFrame"] {
-    border-radius: 12px;
+    border-radius: 14px;
     overflow: hidden;
 }
 
 .stDataFrame {
-    border: 1px solid rgba(108, 99, 255, 0.15);
-    border-radius: 12px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
 }
 
 /* ============================================
-   Sidebar Polish
+   Sidebar
    ============================================ */
 section[data-testid="stSidebar"] {
-    background: rgba(14, 17, 23, 0.95);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: var(--bg-elevated);
 }
 
 section[data-testid="stSidebar"] .stMarkdown h3 {
-    font-size: 1.1rem;
-    font-weight: 700;
+    font-size: 1rem;
+    font-weight: 600;
     letter-spacing: -0.01em;
+    color: var(--text-primary);
 }
 
 /* ============================================
-   Donation / Support Card
+   Selectbox / Slider
    ============================================ */
-.donation-card {
-    background: rgba(30, 30, 50, 0.5);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(108, 99, 255, 0.2);
-    border-radius: 14px;
-    padding: 1.2rem;
-    text-align: center;
-    transition: all 0.3s ease;
+.stSlider [data-baseweb="slider"] {
+    margin-top: 0.5rem;
 }
 
-.donation-card:hover {
-    border-color: rgba(108, 99, 255, 0.4);
-    box-shadow: 0 8px 30px rgba(108, 99, 255, 0.1);
+.stSelectbox [data-baseweb="select"] {
+    background: var(--bg-elevated);
 }
 
-.donation-card h4 {
-    font-size: 1rem;
-    margin-bottom: 0.5rem;
-    color: #e0e0f0;
-}
-
-.donation-card p {
-    font-size: 0.85rem;
-    color: #8888aa;
-    margin-bottom: 0.8rem;
+/* ============================================
+   File uploader
+   ============================================ */
+[data-testid="stFileUploader"] {
+    border-radius: 12px;
 }
 
 /* ============================================
@@ -249,9 +391,9 @@ section[data-testid="stSidebar"] .stMarkdown h3 {
    ============================================ */
 .pro-footer {
     text-align: center;
-    padding: 2rem 0 1rem 0;
-    color: #666688;
-    font-size: 0.82rem;
+    padding: 3rem 0 1.5rem 0;
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
     letter-spacing: 0.02em;
 }
 
@@ -267,33 +409,70 @@ section[data-testid="stSidebar"] .stMarkdown h3 {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(108, 99, 255, 0.3);
+    background: rgba(240,238,233,0.15);
     border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(108, 99, 255, 0.5);
+    background: rgba(240,238,233,0.25);
 }
 
 /* ============================================
-   Slider
+   Alert overrides
    ============================================ */
-.stSlider [data-baseweb="slider"] {
-    margin-top: 0.5rem;
+.stAlert {
+    border-radius: 12px;
 }
 
 /* ============================================
-   Animations
+   Popover
    ============================================ */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+[data-testid="stPopover"] button {
+    border-radius: 980px;
+    font-size: 0.85rem;
 }
 
-.platform-card {
-    animation: fadeIn 0.5s ease forwards;
+/* ============================================
+   Mobile — Tablet
+   ============================================ */
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 2.4rem;
+    }
+    .hero-subtitle {
+        font-size: 1rem;
+    }
+    .platform-card {
+        padding: 1.2rem;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 1.4rem;
+    }
 }
 
-.platform-card:nth-child(2) { animation-delay: 0.1s; }
-.platform-card:nth-child(3) { animation-delay: 0.2s; }
-.platform-card:nth-child(4) { animation-delay: 0.3s; }
+/* ============================================
+   Mobile — Phone
+   ============================================ */
+@media (max-width: 480px) {
+    .hero-title {
+        font-size: 2rem;
+    }
+    .hero-subtitle {
+        font-size: 0.92rem;
+    }
+    .platform-card {
+        padding: 1rem;
+    }
+    .platform-card h3 {
+        font-size: 1.05rem;
+    }
+    .platform-card p {
+        font-size: 0.82rem;
+    }
+    .page-header h1 {
+        font-size: 1.8rem;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 1.2rem;
+    }
+}
