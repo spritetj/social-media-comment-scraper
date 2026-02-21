@@ -1,34 +1,32 @@
 /* ============================================
-   ORBIT — Space Observatory Design System
-   Deep space canvas with luminous glass panels,
-   visible star grid, and bold colored accents.
+   Social Media Scraper — Clean Design System
+   Inspired by Linear, Vercel, and modern SaaS tools.
+   Function-first. No decorative theme.
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-    /* Canvas */
-    --void: #06080F;
-    --deep: #0B0F1A;
-    --mid: #111827;
+    /* Surface layers (darkest → lightest = depth) */
+    --bg-base: #0B0F1A;
+    --bg-surface: rgba(255,255,255,0.04);
+    --bg-surface-hover: rgba(255,255,255,0.07);
 
-    /* Glass */
-    --glass: rgba(255,255,255,0.055);
-    --glass-up: rgba(255,255,255,0.09);
-    --glass-border: rgba(255,255,255,0.1);
-    --glass-border-up: rgba(255,255,255,0.18);
+    /* Borders */
+    --border: rgba(255,255,255,0.08);
+    --border-hover: rgba(255,255,255,0.15);
 
     /* Text */
-    --t1: #F1F5F9;
-    --t2: #94A3B8;
-    --t3: rgba(241,245,249,0.3);
+    --text-1: #F1F5F9;
+    --text-2: #94A3B8;
+    --text-3: #64748B;
 
-    /* Accent */
-    --blue: #3B82F6;
-    --blue-bright: #60A5FA;
-    --blue-glow: rgba(59,130,246,0.35);
+    /* Accent — single blue, used sparingly */
+    --accent: #3B82F6;
+    --accent-hover: #2563EB;
+    --accent-subtle: rgba(59,130,246,0.10);
 
-    /* Platform colors */
+    /* Platform colors (icon tint + top stripe only) */
     --c-yt: #EF4444;
     --c-tt: #06B6D4;
     --c-fb: #3B82F6;
@@ -36,18 +34,15 @@
 
     /* Semantic */
     --ok: #34D399;
-    --warn: #FBBF24;
 
     /* Radius */
-    --r-sm: 10px;
-    --r-md: 14px;
-    --r-lg: 20px;
-    --r-pill: 980px;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
 
     /* Fonts */
-    --f-display: 'Syne', -apple-system, sans-serif;
-    --f-body: 'Outfit', -apple-system, sans-serif;
-    --f-mono: 'JetBrains Mono', monospace;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
 }
 
 
@@ -65,42 +60,28 @@ div[data-testid="stStatusWidget"] {
 
 
 /* ============================================
-   Canvas — deep void + nebula + star grid
+   App Canvas — solid dark, no decoration
    ============================================ */
 .stApp {
-    font-family: var(--f-body) !important;
-    color: var(--t1);
+    font-family: var(--font) !important;
+    color: var(--text-1);
     -webkit-font-smoothing: antialiased;
-    background:
-        radial-gradient(ellipse at 20% 0%, rgba(59,130,246,0.08) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 100%, rgba(168,85,247,0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 50%, rgba(6,182,212,0.03) 0%, transparent 60%),
-        linear-gradient(180deg, var(--void) 0%, var(--deep) 40%, var(--mid) 100%) !important;
-    background-attachment: fixed !important;
+    background: var(--bg-base) !important;
 }
 
-/* Faint dot-grid overlay for observatory feel */
+/* Kill the dot-grid overlay from previous theme */
 .stApp::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-        radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
-    background-size: 40px 40px;
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 70%);
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
+    display: none !important;
 }
 
 h1, h2, h3, h4 {
-    font-family: var(--f-display) !important;
-    color: var(--t1) !important;
+    font-family: var(--font) !important;
+    color: var(--text-1) !important;
 }
 
 
 /* ============================================
-   Navigation — visible on dark canvas
+   Navigation
    ============================================ */
 [data-testid="stPageLink"] {
     background: none !important;
@@ -116,33 +97,32 @@ h1, h2, h3, h4 {
 [data-testid="stPageLink"] a,
 [data-testid="stPageLink"] a span,
 [data-testid="stPageLink"] a p {
-    font-family: var(--f-body) !important;
+    font-family: var(--font) !important;
     font-size: 0.8rem !important;
     font-weight: 400 !important;
-    color: var(--t2) !important;
-    letter-spacing: 0.01em !important;
+    color: var(--text-2) !important;
     text-decoration: none !important;
     padding: 6px 0 !important;
-    transition: color 0.2s ease !important;
+    transition: color 0.15s ease !important;
 }
 
 [data-testid="stPageLink"]:hover a,
 [data-testid="stPageLink"]:hover a span,
 [data-testid="stPageLink"]:hover a p {
-    color: var(--t1) !important;
+    color: var(--text-1) !important;
 }
 
 [data-testid="stPageLink"][aria-current="page"] a,
 [data-testid="stPageLink"][aria-current="page"] a span,
 [data-testid="stPageLink"][aria-current="page"] a p {
     font-weight: 600 !important;
-    color: var(--t1) !important;
+    color: var(--text-1) !important;
 }
 
 .nav-divider {
     border: none;
     height: 1px;
-    background: linear-gradient(90deg, transparent 5%, rgba(255,255,255,0.08) 50%, transparent 95%);
+    background: var(--border);
     margin: 0;
 }
 
@@ -151,18 +131,18 @@ h1, h2, h3, h4 {
    Donate Popover
    ============================================ */
 [data-testid="stPopover"] button {
-    font-family: var(--f-body) !important;
+    font-family: var(--font) !important;
     font-size: 0.8rem !important;
     font-weight: 400 !important;
     border: none !important;
     background: transparent !important;
-    color: var(--t2) !important;
+    color: var(--text-2) !important;
     padding: 0 !important;
     border-radius: 0 !important;
 }
 
 [data-testid="stPopover"] button:hover {
-    color: var(--t1) !important;
+    color: var(--text-1) !important;
     background: transparent !important;
 }
 
@@ -171,53 +151,41 @@ h1, h2, h3, h4 {
    Dashboard Header
    ============================================ */
 .dash-header {
-    padding: 2rem 0 1.25rem 0;
+    padding: 2.5rem 0 1.5rem 0;
     text-align: center;
 }
 
+/* Hide the pulsing beacon — decorative animation on a static page */
 .dash-beacon {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--blue);
-    margin: 0 auto 0.75rem;
-    box-shadow: 0 0 10px var(--blue-glow), 0 0 30px rgba(59,130,246,0.15);
-    animation: pulse-glow 3s ease-in-out infinite;
-}
-
-@keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 8px rgba(59,130,246,0.25), 0 0 20px rgba(59,130,246,0.08); }
-    50% { box-shadow: 0 0 14px rgba(59,130,246,0.5), 0 0 40px rgba(59,130,246,0.2); }
+    display: none;
 }
 
 .dash-title {
-    font-family: var(--f-display);
-    font-size: 2.2rem;
-    font-weight: 800;
-    color: var(--t1);
-    letter-spacing: -0.03em;
-    line-height: 1.1;
+    font-family: var(--font);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-1);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
     margin: 0 0 0.35rem 0;
 }
 
 .dash-subtitle {
-    font-family: var(--f-body);
+    font-family: var(--font);
     font-size: 0.95rem;
-    color: var(--t2);
+    color: var(--text-2);
     font-weight: 400;
     margin: 0;
 }
 
 
 /* ============================================
-   Space Cards — bold glass panels
+   Platform Cards — clean surface elevation
    ============================================ */
 .space-card {
-    background: var(--glass);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--r-lg);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     padding: 1.75rem 1.5rem 1.25rem;
     text-align: center;
     display: flex;
@@ -225,23 +193,18 @@ h1, h2, h3, h4 {
     align-items: center;
     position: relative;
     overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-    opacity: 0;
-    animation: cardUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-/* Colored top-edge accent — each card gets a visible platform color stripe */
+/* Top accent stripe — full width, always visible, platform color */
 .space-card::before {
     content: '';
     position: absolute;
     top: 0;
-    left: 20%;
-    right: 20%;
-    height: 2px;
-    border-radius: 0 0 4px 4px;
-    background: var(--card-accent, var(--blue));
-    opacity: 0.5;
-    transition: opacity 0.3s ease, left 0.3s ease, right 0.3s ease;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--accent);
 }
 
 .space-card.accent-red::before    { background: var(--c-yt); }
@@ -249,99 +212,83 @@ h1, h2, h3, h4 {
 .space-card.accent-blue::before   { background: var(--c-fb); }
 .space-card.accent-violet::before { background: var(--c-ig); }
 
-.space-card.d1 { animation-delay: 0.05s; }
-.space-card.d2 { animation-delay: 0.1s; }
-.space-card.d3 { animation-delay: 0.15s; }
-.space-card.d4 { animation-delay: 0.2s; }
-
-@keyframes cardUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
+/* Card hover — just surface + border change, nothing else */
+.space-card:hover {
+    background: var(--bg-surface-hover);
+    border-color: var(--border-hover);
 }
 
-/* Icon — large, bold, with colored glow ring */
+/* Icon container — platform-tinted background */
 .card-icon-wrap {
-    --ic: var(--blue);
-    width: 64px;
-    height: 64px;
-    border-radius: 18px;
-    background: rgba(0,0,0,0.25);
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-lg);
+    background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.06);
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto 1rem;
-    font-size: 1.75rem;
-    position: relative;
-    transition: all 0.3s ease;
+    font-size: 1.5rem;
 }
 
-.card-icon-wrap::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: 18px;
-    background: radial-gradient(circle at 50% 120%, var(--ic), transparent 70%);
-    opacity: 0.15;
-    transition: opacity 0.3s ease;
-    z-index: -1;
-}
-
-.card-icon-wrap.ic-red    { --ic: var(--c-yt); }
-.card-icon-wrap.ic-cyan   { --ic: var(--c-tt); }
-.card-icon-wrap.ic-blue   { --ic: var(--c-fb); }
-.card-icon-wrap.ic-violet { --ic: var(--c-ig); }
+/* Platform-tinted icon backgrounds */
+.card-icon-wrap.ic-red    { background: rgba(239,68,68,0.10); border-color: rgba(239,68,68,0.15); }
+.card-icon-wrap.ic-cyan   { background: rgba(6,182,212,0.10); border-color: rgba(6,182,212,0.15); }
+.card-icon-wrap.ic-blue   { background: rgba(59,130,246,0.10); border-color: rgba(59,130,246,0.15); }
+.card-icon-wrap.ic-violet { background: rgba(168,85,247,0.10); border-color: rgba(168,85,247,0.15); }
 
 .space-card h3 {
-    font-family: var(--f-display) !important;
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--t1) !important;
+    font-family: var(--font) !important;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-1) !important;
     letter-spacing: -0.01em;
     margin: 0 0 0.3rem 0;
 }
 
 .space-card p {
-    font-family: var(--f-body);
-    font-size: 0.85rem;
-    color: var(--t2);
+    font-family: var(--font);
+    font-size: 0.875rem;
+    color: var(--text-2);
     font-weight: 400;
-    line-height: 1.4;
+    line-height: 1.5;
     margin: 0 0 0.75rem 0;
 }
 
 /* Badge */
 .card-badge {
-    font-family: var(--f-mono);
-    font-size: 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 3px 9px;
-    border-radius: var(--r-pill);
+    letter-spacing: 0.04em;
+    padding: 3px 10px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.25rem;
 }
 
 .badge-open {
     color: var(--ok);
-    background: rgba(52,211,153,0.1);
-    border: 1px solid rgba(52,211,153,0.25);
+    background: rgba(52,211,153,0.08);
+    border: 1px solid rgba(52,211,153,0.20);
 }
 
 .badge-auth {
-    color: var(--t2);
-    background: rgba(148,163,184,0.08);
-    border: 1px solid rgba(148,163,184,0.2);
+    color: var(--text-2);
+    background: rgba(148,163,184,0.06);
+    border: 1px solid rgba(148,163,184,0.15);
 }
 
 
 /* ============================================
-   Card Action Button — visible page_link below card
+   Card Action Buttons — uniform blue, clean
    ============================================ */
 [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] {
     background: none !important;
     border: none !important;
     padding: 0 !important;
-    margin-top: -4px !important;
+    margin-top: 6px !important;
 }
 
 [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a,
@@ -352,119 +299,86 @@ h1, h2, h3, h4 {
     align-items: center !important;
     width: 100% !important;
     padding: 0.6rem 0 !important;
-    border-radius: var(--r-pill) !important;
-    background: rgba(59,130,246,0.08) !important;
-    border: 1px solid rgba(59,130,246,0.2) !important;
-    color: var(--blue-bright) !important;
-    font-family: var(--f-body) !important;
+    border-radius: var(--radius-md) !important;
+    background: var(--accent-subtle) !important;
+    border: 1px solid rgba(59,130,246,0.20) !important;
+    color: #60A5FA !important;
+    font-family: var(--font) !important;
     font-size: 0.85rem !important;
     font-weight: 500 !important;
-    letter-spacing: 0.01em !important;
     text-decoration: none !important;
     cursor: pointer !important;
-    transition: all 0.25s ease !important;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
 }
 
 [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"]:hover a,
 [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"]:hover a span,
 [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"]:hover a p {
-    background: rgba(59,130,246,0.15) !important;
-    border-color: rgba(59,130,246,0.4) !important;
+    background: rgba(59,130,246,0.18) !important;
+    border-color: rgba(59,130,246,0.35) !important;
     color: #FFF !important;
-    box-shadow: 0 0 20px rgba(59,130,246,0.15) !important;
-}
-
-/* ── Card hover — glass brightens, accent expands ── */
-.space-card:hover {
-    background: var(--glass-up);
-    border-color: var(--glass-border-up);
-    box-shadow:
-        0 0 40px rgba(59,130,246,0.06),
-        0 8px 32px rgba(0,0,0,0.3),
-        inset 0 1px 0 rgba(255,255,255,0.06);
-    transform: translateY(-2px);
-}
-
-.space-card:hover::before {
-    opacity: 0.9;
-    left: 10%;
-    right: 10%;
-}
-
-.space-card:hover .card-icon-wrap {
-    border-color: rgba(255,255,255,0.12);
-}
-
-.space-card:hover .card-icon-wrap::after {
-    opacity: 0.3;
 }
 
 
 /* ============================================
-   Column gap
+   Column Gap
    ============================================ */
 [data-testid="stHorizontalBlock"] {
-    gap: 14px !important;
+    gap: 16px !important;
 }
 
 
 /* ============================================
-   Buttons — glowing
+   Buttons
    ============================================ */
 .stButton > button {
-    border-radius: var(--r-pill);
-    font-family: var(--f-body) !important;
+    border-radius: var(--radius-md);
+    font-family: var(--font) !important;
     font-weight: 500;
-    font-size: 0.92rem;
-    letter-spacing: 0.01em;
-    transition: all 0.25s ease;
+    font-size: 0.9rem;
+    transition: all 0.15s ease;
     border: none;
-    padding: 0.55rem 1.5rem;
+    padding: 0.5rem 1.5rem;
 }
 
 .stButton > button[kind="primary"],
 .stButton > button[data-testid="stBaseButton-primary"] {
-    background: var(--blue) !important;
+    background: var(--accent) !important;
     color: #FFF !important;
     border: none !important;
-    box-shadow: 0 0 18px rgba(59,130,246,0.3), 0 2px 8px rgba(0,0,0,0.4);
 }
 
 .stButton > button[kind="primary"]:hover,
 .stButton > button[data-testid="stBaseButton-primary"]:hover {
-    background: #2563EB !important;
-    box-shadow: 0 0 28px rgba(59,130,246,0.4), 0 4px 16px rgba(0,0,0,0.4);
-    transform: translateY(-1px);
+    background: var(--accent-hover) !important;
 }
 
 .stButton > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]) {
-    background: rgba(255,255,255,0.04);
-    color: var(--blue-bright);
-    border: 1px solid rgba(59,130,246,0.3);
+    background: transparent;
+    color: #60A5FA;
+    border: 1px solid rgba(59,130,246,0.25);
 }
 
 .stButton > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]):hover {
-    background: rgba(59,130,246,0.1);
-    border-color: rgba(59,130,246,0.5);
-    box-shadow: 0 0 15px rgba(59,130,246,0.12);
+    background: var(--accent-subtle);
+    border-color: rgba(59,130,246,0.40);
 }
 
 .stDownloadButton > button {
     width: 100%;
-    border-radius: var(--r-pill);
-    font-family: var(--f-body) !important;
+    border-radius: var(--radius-md);
+    font-family: var(--font) !important;
     font-weight: 500;
-    font-size: 0.92rem;
-    transition: all 0.25s ease;
-    background: rgba(255,255,255,0.04);
-    color: var(--blue-bright);
-    border: 1px solid rgba(59,130,246,0.3);
+    font-size: 0.9rem;
+    transition: all 0.15s ease;
+    background: transparent;
+    color: #60A5FA;
+    border: 1px solid rgba(59,130,246,0.25);
 }
 
 .stDownloadButton > button:hover {
-    background: rgba(59,130,246,0.12);
-    border-color: rgba(59,130,246,0.5);
-    box-shadow: 0 0 15px rgba(59,130,246,0.12);
+    background: var(--accent-subtle);
+    border-color: rgba(59,130,246,0.40);
     color: #FFF;
 }
 
@@ -477,17 +391,17 @@ h1, h2, h3, h4 {
 }
 
 .page-header h1 {
-    font-family: var(--f-display) !important;
-    font-size: 1.85rem;
+    font-family: var(--font) !important;
+    font-size: 1.6rem;
     font-weight: 700;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.02em;
     margin-bottom: 0.2rem;
-    color: var(--t1) !important;
+    color: var(--text-1) !important;
 }
 
 .page-desc {
-    font-family: var(--f-body);
-    color: var(--t2);
+    font-family: var(--font);
+    color: var(--text-2);
     font-size: 0.92rem;
     margin-bottom: 1.75rem;
     font-weight: 400;
@@ -495,87 +409,85 @@ h1, h2, h3, h4 {
 
 
 /* ============================================
-   Metric Cards — glass + mono readout
+   Metric Cards
    ============================================ */
 [data-testid="stMetric"] {
-    background: var(--glass) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border) !important;
-    border-radius: var(--r-md);
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-lg);
     padding: 1rem;
     text-align: center;
 }
 
 [data-testid="stMetricValue"] {
-    font-family: var(--f-mono) !important;
-    font-size: 1.6rem !important;
+    font-family: var(--font-mono) !important;
+    font-size: 1.5rem !important;
     font-weight: 700;
-    color: var(--t1) !important;
+    color: var(--text-1) !important;
     letter-spacing: -0.02em;
 }
 
 [data-testid="stMetricLabel"] {
-    font-family: var(--f-mono) !important;
-    color: var(--t2) !important;
-    font-size: 0.6rem !important;
+    font-family: var(--font-mono) !important;
+    color: var(--text-2) !important;
+    font-size: 0.7rem !important;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     font-weight: 500;
 }
 
 
 /* ============================================
-   Input Areas — dark glass
+   Inputs
    ============================================ */
 .stTextArea textarea {
-    background: rgba(255,255,255,0.035) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    border-radius: var(--r-sm);
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-md);
     font-size: 0.88rem;
-    color: var(--t1) !important;
-    font-family: var(--f-body) !important;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    color: var(--text-1) !important;
+    font-family: var(--font) !important;
+    transition: border-color 0.15s ease;
 }
 
 .stTextArea textarea:focus {
     border-color: rgba(59,130,246,0.5) !important;
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.1), 0 0 20px rgba(59,130,246,0.06);
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
 }
 
 .stTextArea textarea::placeholder {
-    color: rgba(241,245,249,0.2) !important;
+    color: var(--text-3) !important;
 }
 
 .stTextInput input {
-    background: rgba(255,255,255,0.035) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    border-radius: var(--r-sm);
-    color: var(--t1) !important;
-    font-family: var(--f-body) !important;
-    transition: border-color 0.2s ease;
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-md);
+    color: var(--text-1) !important;
+    font-family: var(--font) !important;
+    transition: border-color 0.15s ease;
 }
 
 .stTextInput input:focus {
     border-color: rgba(59,130,246,0.5) !important;
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
 }
 
 
 /* ============================================
-   Expander — dark glass panel
+   Expander
    ============================================ */
 [data-testid="stExpander"] {
-    background: rgba(255,255,255,0.025) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    border-radius: var(--r-md);
+    background: rgba(255,255,255,0.02) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-lg);
 }
 
 [data-testid="stExpander"] summary {
-    font-family: var(--f-body) !important;
+    font-family: var(--font) !important;
     font-weight: 500;
     font-size: 0.85rem;
-    color: var(--t1) !important;
+    color: var(--text-1) !important;
 }
 
 
@@ -583,14 +495,14 @@ h1, h2, h3, h4 {
    Data Table
    ============================================ */
 [data-testid="stDataFrame"] {
-    border-radius: var(--r-md);
+    border-radius: var(--radius-lg);
     overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid var(--border);
 }
 
 .stDataFrame {
     border: none;
-    border-radius: var(--r-md);
+    border-radius: var(--radius-lg);
 }
 
 
@@ -598,15 +510,15 @@ h1, h2, h3, h4 {
    Selectbox / File Uploader / Sidebar
    ============================================ */
 section[data-testid="stSidebar"] {
-    background: var(--deep);
+    background: #0D1117;
 }
 
 .stSelectbox [data-baseweb="select"] {
-    background: rgba(255,255,255,0.035);
+    background: rgba(255,255,255,0.03);
 }
 
 [data-testid="stFileUploader"] {
-    border-radius: var(--r-sm);
+    border-radius: var(--radius-md);
 }
 
 
@@ -616,10 +528,10 @@ section[data-testid="stSidebar"] {
 .platform-footer {
     text-align: center;
     padding: 2.5rem 0 1.5rem 0;
-    font-family: var(--f-mono);
-    color: var(--t3);
-    font-size: 0.6rem;
-    letter-spacing: 0.1em;
+    font-family: var(--font-mono);
+    color: var(--text-3);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
 }
 
@@ -637,7 +549,7 @@ section[data-testid="stSidebar"] {
    Alerts
    ============================================ */
 .stAlert {
-    border-radius: var(--r-sm);
+    border-radius: var(--radius-md);
 }
 
 
@@ -646,21 +558,35 @@ section[data-testid="stSidebar"] {
    ============================================ */
 @media (max-width: 768px) {
     .dash-header { padding: 1.5rem 0 1rem 0; }
-    .dash-title { font-size: 1.75rem; }
+    .dash-title { font-size: 1.5rem; }
     .space-card { padding: 1.5rem 1.25rem 1rem; }
-    .space-card h3 { font-size: 1.05rem; }
-    .card-icon-wrap { width: 52px; height: 52px; font-size: 1.4rem; }
-    .page-header h1 { font-size: 1.5rem; }
+    .space-card h3 { font-size: 1rem; }
+    .card-icon-wrap { width: 44px; height: 44px; font-size: 1.3rem; }
+    .page-header h1 { font-size: 1.4rem; }
+
+    [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a,
+    [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a span,
+    [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a p {
+        padding: 0.7rem 0 !important;
+    }
 }
+
 
 /* ============================================
    Responsive — Phone
    ============================================ */
 @media (max-width: 480px) {
-    .dash-title { font-size: 1.4rem; }
+    .dash-title { font-size: 1.3rem; }
     .dash-subtitle { font-size: 0.88rem; }
     .space-card { padding: 1.25rem 1rem 0.85rem; }
     .space-card h3 { font-size: 0.95rem; }
-    .card-icon-wrap { width: 44px; height: 44px; font-size: 1.2rem; border-radius: 12px; }
-    .page-header h1 { font-size: 1.35rem; }
+    .card-icon-wrap { width: 40px; height: 40px; font-size: 1.15rem; border-radius: var(--radius-md); }
+    .page-header h1 { font-size: 1.25rem; }
+
+    [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a,
+    [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a span,
+    [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a p {
+        padding: 0.8rem 0 !important;
+        font-size: 0.88rem !important;
+    }
 }
