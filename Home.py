@@ -1,7 +1,8 @@
 """
 Social Media Comment Scraper — Dashboard
 ==========================================
-Space observatory dashboard with fully clickable cards.
+Space observatory dashboard. Cards are visual,
+buttons below each card are the actual navigation.
 """
 
 import streamlit as st
@@ -61,15 +62,16 @@ with r1c1:
             <div class="card-icon-wrap ic-red"><span>🎬</span></div>
             <h3>YouTube</h3>
             <p>Extract comments and replies from any video.</p>
-            <div class="card-meta">
-                <span class="card-badge badge-open">No login needed</span>
-                <span class="card-arrow">&rarr;</span>
-            </div>
+            <span class="card-badge badge-open">No login needed</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.page_link("pages/1_🎬_YouTube.py", label="Open YouTube")
+    st.page_link(
+        "pages/1_🎬_YouTube.py",
+        label="Open YouTube  →",
+        use_container_width=True,
+    )
 
 with r1c2:
     st.markdown(
@@ -78,15 +80,16 @@ with r1c2:
             <div class="card-icon-wrap ic-cyan"><span>🎵</span></div>
             <h3>TikTok</h3>
             <p>Video comments and reply threads.</p>
-            <div class="card-meta">
-                <span class="card-badge badge-open">No login needed</span>
-                <span class="card-arrow">&rarr;</span>
-            </div>
+            <span class="card-badge badge-open">No login needed</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.page_link("pages/2_🎵_TikTok.py", label="Open TikTok")
+    st.page_link(
+        "pages/2_🎵_TikTok.py",
+        label="Open TikTok  →",
+        use_container_width=True,
+    )
 
 # Row 2 — Facebook + Instagram
 r2c1, r2c2 = st.columns(2, gap="medium")
@@ -98,15 +101,16 @@ with r2c1:
             <div class="card-icon-wrap ic-blue"><span>📘</span></div>
             <h3>Facebook</h3>
             <p>Scrape comments from posts, reels, and videos.</p>
-            <div class="card-meta">
-                <span class="card-badge badge-auth">Cookies required</span>
-                <span class="card-arrow">&rarr;</span>
-            </div>
+            <span class="card-badge badge-auth">Cookies required</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.page_link("pages/3_📘_Facebook.py", label="Open Facebook")
+    st.page_link(
+        "pages/3_📘_Facebook.py",
+        label="Open Facebook  →",
+        use_container_width=True,
+    )
 
 with r2c2:
     st.markdown(
@@ -115,15 +119,16 @@ with r2c2:
             <div class="card-icon-wrap ic-violet"><span>📷</span></div>
             <h3>Instagram</h3>
             <p>Post and reel comments with replies.</p>
-            <div class="card-meta">
-                <span class="card-badge badge-auth">Cookies optional</span>
-                <span class="card-arrow">&rarr;</span>
-            </div>
+            <span class="card-badge badge-auth">Cookies optional</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.page_link("pages/4_📷_Instagram.py", label="Open Instagram")
+    st.page_link(
+        "pages/4_📷_Instagram.py",
+        label="Open Instagram  →",
+        use_container_width=True,
+    )
 
 # Footer
 st.markdown(

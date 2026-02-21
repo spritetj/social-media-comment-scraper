@@ -223,7 +223,6 @@ h1, h2, h3, h4 {
     display: flex;
     flex-direction: column;
     align-items: center;
-    cursor: pointer;
     position: relative;
     overflow: hidden;
     transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -311,17 +310,7 @@ h1, h2, h3, h4 {
     margin: 0 0 0.75rem 0;
 }
 
-/* Card footer */
-.card-meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    margin-top: auto;
-    padding-top: 0.65rem;
-    border-top: 1px solid rgba(255,255,255,0.05);
-}
-
+/* Badge */
 .card-badge {
     font-family: var(--f-mono);
     font-size: 0.6rem;
@@ -344,86 +333,70 @@ h1, h2, h3, h4 {
     border: 1px solid rgba(148,163,184,0.2);
 }
 
-.card-arrow {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.08);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--t2);
-    font-size: 0.85rem;
-    transition: all 0.3s ease;
-}
-
 
 /* ============================================
-   Clickable Card Overlay — :has() system
+   Card Action Button — visible page_link below card
    ============================================ */
-[data-testid="stVerticalBlock"]:has(.space-card) {
-    position: relative;
-    cursor: pointer;
-}
-
-[data-testid="stVerticalBlock"]:has(.space-card) > [data-testid="stElementContainer"]:has([data-testid="stPageLink"]) {
-    position: absolute !important;
-    inset: 0 !important;
-    z-index: 10;
-}
-
 [data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] {
-    height: 100%;
     background: none !important;
     border: none !important;
     padding: 0 !important;
+    margin-top: -4px !important;
 }
 
-[data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a {
-    display: block !important;
+[data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a,
+[data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a span,
+[data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a p {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
     width: 100% !important;
-    height: 100% !important;
-    color: transparent !important;
-    font-size: 0 !important;
-    padding: 0 !important;
+    padding: 0.6rem 0 !important;
+    border-radius: var(--r-pill) !important;
+    background: rgba(59,130,246,0.08) !important;
+    border: 1px solid rgba(59,130,246,0.2) !important;
+    color: var(--blue-bright) !important;
+    font-family: var(--f-body) !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.01em !important;
+    text-decoration: none !important;
     cursor: pointer !important;
+    transition: all 0.25s ease !important;
 }
 
-[data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a * {
-    display: none !important;
+[data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"]:hover a,
+[data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"]:hover a span,
+[data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"]:hover a p {
+    background: rgba(59,130,246,0.15) !important;
+    border-color: rgba(59,130,246,0.4) !important;
+    color: #FFF !important;
+    box-shadow: 0 0 20px rgba(59,130,246,0.15) !important;
 }
 
-/* ── Card hover — glass brightens, accent expands, arrow activates ── */
-[data-testid="stVerticalBlock"]:has(.space-card):hover .space-card {
+/* ── Card hover — glass brightens, accent expands ── */
+.space-card:hover {
     background: var(--glass-up);
     border-color: var(--glass-border-up);
     box-shadow:
         0 0 40px rgba(59,130,246,0.06),
         0 8px 32px rgba(0,0,0,0.3),
         inset 0 1px 0 rgba(255,255,255,0.06);
-    transform: translateY(-4px);
+    transform: translateY(-2px);
 }
 
-[data-testid="stVerticalBlock"]:has(.space-card):hover .space-card::before {
+.space-card:hover::before {
     opacity: 0.9;
     left: 10%;
     right: 10%;
 }
 
-[data-testid="stVerticalBlock"]:has(.space-card):hover .card-icon-wrap {
+.space-card:hover .card-icon-wrap {
     border-color: rgba(255,255,255,0.12);
 }
 
-[data-testid="stVerticalBlock"]:has(.space-card):hover .card-icon-wrap::after {
+.space-card:hover .card-icon-wrap::after {
     opacity: 0.3;
-}
-
-[data-testid="stVerticalBlock"]:has(.space-card):hover .card-arrow {
-    background: var(--blue);
-    border-color: var(--blue);
-    color: #FFF;
-    box-shadow: 0 0 12px var(--blue-glow);
 }
 
 
