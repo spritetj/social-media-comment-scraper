@@ -1,48 +1,53 @@
 /* ============================================
-   Space / Scientific Design — Comment Scraper
-   Deep space dark theme, glassmorphism cards,
-   glowing accents, Syne + Outfit typography.
+   ORBIT — Space Observatory Design System
+   Deep space canvas with luminous glass panels,
+   visible star grid, and bold colored accents.
    ============================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 :root {
-    /* Surfaces */
-    --bg: #080B16;
-    --bg-mid: #0D1224;
-    --bg-top: #0F1629;
-    --glass: rgba(255,255,255,0.035);
-    --glass-hover: rgba(255,255,255,0.065);
-    --glass-border: rgba(255,255,255,0.06);
-    --glass-border-hover: rgba(59,130,246,0.28);
+    /* Canvas */
+    --void: #06080F;
+    --deep: #0B0F1A;
+    --mid: #111827;
+
+    /* Glass */
+    --glass: rgba(255,255,255,0.055);
+    --glass-up: rgba(255,255,255,0.09);
+    --glass-border: rgba(255,255,255,0.1);
+    --glass-border-up: rgba(255,255,255,0.18);
 
     /* Text */
-    --text-1: #E2E8F0;
-    --text-2: #64748B;
-    --text-3: rgba(226,232,240,0.25);
+    --t1: #F1F5F9;
+    --t2: #94A3B8;
+    --t3: rgba(241,245,249,0.3);
 
     /* Accent */
-    --accent: #3B82F6;
-    --accent-bright: #60A5FA;
-    --accent-deep: #2563EB;
-    --glow: rgba(59,130,246,0.15);
-    --glow-strong: rgba(59,130,246,0.3);
+    --blue: #3B82F6;
+    --blue-bright: #60A5FA;
+    --blue-glow: rgba(59,130,246,0.35);
+
+    /* Platform colors */
+    --c-yt: #EF4444;
+    --c-tt: #06B6D4;
+    --c-fb: #3B82F6;
+    --c-ig: #A855F7;
 
     /* Semantic */
     --ok: #34D399;
     --warn: #FBBF24;
-    --err: #F87171;
 
     /* Radius */
     --r-sm: 10px;
     --r-md: 14px;
-    --r-lg: 18px;
+    --r-lg: 20px;
     --r-pill: 980px;
 
     /* Fonts */
-    --f-display: 'Syne', -apple-system, BlinkMacSystemFont, sans-serif;
-    --f-body: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-    --f-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    --f-display: 'Syne', -apple-system, sans-serif;
+    --f-body: 'Outfit', -apple-system, sans-serif;
+    --f-mono: 'JetBrains Mono', monospace;
 }
 
 
@@ -60,28 +65,42 @@ div[data-testid="stStatusWidget"] {
 
 
 /* ============================================
-   Base — deep space background
+   Canvas — deep void + nebula + star grid
    ============================================ */
 .stApp {
-    font-family: var(--f-body);
-    background:
-        radial-gradient(ellipse at 15% 50%, rgba(59,130,246,0.07) 0%, transparent 50%),
-        radial-gradient(ellipse at 85% 15%, rgba(139,92,246,0.05) 0%, transparent 40%),
-        radial-gradient(ellipse at 50% 100%, rgba(52,211,153,0.025) 0%, transparent 40%),
-        linear-gradient(180deg, var(--bg) 0%, var(--bg-mid) 50%, var(--bg-top) 100%) !important;
+    font-family: var(--f-body) !important;
+    color: var(--t1);
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    color: var(--text-1);
+    background:
+        radial-gradient(ellipse at 20% 0%, rgba(59,130,246,0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(168,85,247,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(6,182,212,0.03) 0%, transparent 60%),
+        linear-gradient(180deg, var(--void) 0%, var(--deep) 40%, var(--mid) 100%) !important;
+    background-attachment: fixed !important;
+}
+
+/* Faint dot-grid overlay for observatory feel */
+.stApp::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+        radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
 }
 
 h1, h2, h3, h4 {
-    font-family: var(--f-display);
-    color: var(--text-1);
+    font-family: var(--f-display) !important;
+    color: var(--t1) !important;
 }
 
 
 /* ============================================
-   Navigation — frosted glass on dark
+   Navigation — visible on dark canvas
    ============================================ */
 [data-testid="stPageLink"] {
     background: none !important;
@@ -94,33 +113,36 @@ h1, h2, h3, h4 {
     background: none !important;
 }
 
-[data-testid="stPageLink"] a {
+[data-testid="stPageLink"] a,
+[data-testid="stPageLink"] a span,
+[data-testid="stPageLink"] a p {
     font-family: var(--f-body) !important;
     font-size: 0.8rem !important;
     font-weight: 400 !important;
-    color: rgba(226,232,240,0.4) !important;
+    color: var(--t2) !important;
     letter-spacing: 0.01em !important;
     text-decoration: none !important;
     padding: 6px 0 !important;
-    transition: color 0.2s ease;
-    display: inline-block;
+    transition: color 0.2s ease !important;
 }
 
-[data-testid="stPageLink"]:hover a {
-    color: rgba(226,232,240,0.8) !important;
+[data-testid="stPageLink"]:hover a,
+[data-testid="stPageLink"]:hover a span,
+[data-testid="stPageLink"]:hover a p {
+    color: var(--t1) !important;
 }
 
-[data-testid="stPageLink"][aria-current="page"] a {
+[data-testid="stPageLink"][aria-current="page"] a,
+[data-testid="stPageLink"][aria-current="page"] a span,
+[data-testid="stPageLink"][aria-current="page"] a p {
     font-weight: 600 !important;
-    color: var(--text-1) !important;
-    text-shadow: 0 0 12px var(--glow);
+    color: var(--t1) !important;
 }
 
-/* Nav separator — gradient fade */
 .nav-divider {
     border: none;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+    background: linear-gradient(90deg, transparent 5%, rgba(255,255,255,0.08) 50%, transparent 95%);
     margin: 0;
 }
 
@@ -134,22 +156,22 @@ h1, h2, h3, h4 {
     font-weight: 400 !important;
     border: none !important;
     background: transparent !important;
-    color: rgba(226,232,240,0.4) !important;
+    color: var(--t2) !important;
     padding: 0 !important;
     border-radius: 0 !important;
 }
 
 [data-testid="stPopover"] button:hover {
-    color: rgba(226,232,240,0.8) !important;
+    color: var(--t1) !important;
     background: transparent !important;
 }
 
 
 /* ============================================
-   Dashboard Header — beacon + title
+   Dashboard Header
    ============================================ */
 .dash-header {
-    padding: 2.5rem 0 1.5rem 0;
+    padding: 2rem 0 1.25rem 0;
     text-align: center;
 }
 
@@ -157,169 +179,188 @@ h1, h2, h3, h4 {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--accent);
-    margin: 0 auto 1rem;
-    box-shadow: 0 0 8px var(--glow-strong), 0 0 24px var(--glow);
-    animation: beacon 3s ease-in-out infinite;
+    background: var(--blue);
+    margin: 0 auto 0.75rem;
+    box-shadow: 0 0 10px var(--blue-glow), 0 0 30px rgba(59,130,246,0.15);
+    animation: pulse-glow 3s ease-in-out infinite;
 }
 
-@keyframes beacon {
-    0%, 100% {
-        opacity: 0.7;
-        box-shadow: 0 0 8px rgba(59,130,246,0.2), 0 0 20px rgba(59,130,246,0.1);
-    }
-    50% {
-        opacity: 1;
-        box-shadow: 0 0 12px rgba(59,130,246,0.5), 0 0 30px rgba(59,130,246,0.2);
-    }
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 8px rgba(59,130,246,0.25), 0 0 20px rgba(59,130,246,0.08); }
+    50% { box-shadow: 0 0 14px rgba(59,130,246,0.5), 0 0 40px rgba(59,130,246,0.2); }
 }
 
 .dash-title {
     font-family: var(--f-display);
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--text-1);
-    letter-spacing: -0.02em;
-    line-height: 1.15;
-    margin: 0 0 0.4rem 0;
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--t1);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin: 0 0 0.35rem 0;
 }
 
 .dash-subtitle {
     font-family: var(--f-body);
     font-size: 0.95rem;
-    color: var(--text-2);
+    color: var(--t2);
     font-weight: 400;
-    line-height: 1.5;
     margin: 0;
 }
 
 
 /* ============================================
-   Space Cards — glassmorphism, clickable
+   Space Cards — bold glass panels
    ============================================ */
 .space-card {
     background: var(--glass);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border: 1px solid var(--glass-border);
     border-radius: var(--r-lg);
     padding: 1.75rem 1.5rem 1.25rem;
-    min-height: 210px;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    transition: background 0.3s ease,
-                border-color 0.3s ease,
-                box-shadow 0.3s ease,
-                transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
     cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
     opacity: 0;
-    animation: cardReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: cardUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Colored top-edge accent — each card gets a visible platform color stripe */
+.space-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    border-radius: 0 0 4px 4px;
+    background: var(--card-accent, var(--blue));
+    opacity: 0.5;
+    transition: opacity 0.3s ease, left 0.3s ease, right 0.3s ease;
+}
+
+.space-card.accent-red::before    { background: var(--c-yt); }
+.space-card.accent-cyan::before   { background: var(--c-tt); }
+.space-card.accent-blue::before   { background: var(--c-fb); }
+.space-card.accent-violet::before { background: var(--c-ig); }
 
 .space-card.d1 { animation-delay: 0.05s; }
-.space-card.d2 { animation-delay: 0.12s; }
-.space-card.d3 { animation-delay: 0.19s; }
-.space-card.d4 { animation-delay: 0.26s; }
+.space-card.d2 { animation-delay: 0.1s; }
+.space-card.d3 { animation-delay: 0.15s; }
+.space-card.d4 { animation-delay: 0.2s; }
 
-@keyframes cardReveal {
-    from {
-        opacity: 0;
-        transform: translateY(12px) scale(0.97);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+@keyframes cardUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Icon ring with platform color */
-.card-icon-ring {
-    --rc: 59,130,246;
-    width: 52px;
-    height: 52px;
-    border-radius: var(--r-md);
-    background: rgba(var(--rc), 0.08);
-    border: 1px solid rgba(var(--rc), 0.15);
+/* Icon — large, bold, with colored glow ring */
+.card-icon-wrap {
+    --ic: var(--blue);
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.06);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 0.85rem;
-    font-size: 1.4rem;
-    transition: background 0.3s ease, box-shadow 0.3s ease;
+    margin: 0 auto 1rem;
+    font-size: 1.75rem;
+    position: relative;
+    transition: all 0.3s ease;
 }
 
-.ring-red    { --rc: 239,68,68; }
-.ring-cyan   { --rc: 6,182,212; }
-.ring-blue   { --rc: 59,130,246; }
-.ring-violet { --rc: 139,92,246; }
+.card-icon-wrap::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 18px;
+    background: radial-gradient(circle at 50% 120%, var(--ic), transparent 70%);
+    opacity: 0.15;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+}
+
+.card-icon-wrap.ic-red    { --ic: var(--c-yt); }
+.card-icon-wrap.ic-cyan   { --ic: var(--c-tt); }
+.card-icon-wrap.ic-blue   { --ic: var(--c-fb); }
+.card-icon-wrap.ic-violet { --ic: var(--c-ig); }
 
 .space-card h3 {
-    font-family: var(--f-display);
-    font-size: 1.15rem;
-    font-weight: 600;
-    color: var(--text-1);
+    font-family: var(--f-display) !important;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--t1) !important;
     letter-spacing: -0.01em;
     margin: 0 0 0.3rem 0;
 }
 
 .space-card p {
     font-family: var(--f-body);
-    font-size: 0.82rem;
-    color: var(--text-2);
+    font-size: 0.85rem;
+    color: var(--t2);
     font-weight: 400;
-    line-height: 1.45;
-    margin: 0;
-    flex-grow: 1;
+    line-height: 1.4;
+    margin: 0 0 0.75rem 0;
 }
 
-/* Card footer: badge + arrow */
+/* Card footer */
 .card-meta {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    margin-top: 0.85rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid rgba(255,255,255,0.04);
+    margin-top: auto;
+    padding-top: 0.65rem;
+    border-top: 1px solid rgba(255,255,255,0.05);
 }
 
 .card-badge {
     font-family: var(--f-mono);
-    font-size: 0.58rem;
+    font-size: 0.6rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 3px 8px;
+    letter-spacing: 0.05em;
+    padding: 3px 9px;
     border-radius: var(--r-pill);
 }
 
 .badge-open {
     color: var(--ok);
-    background: rgba(52,211,153,0.08);
-    border: 1px solid rgba(52,211,153,0.18);
+    background: rgba(52,211,153,0.1);
+    border: 1px solid rgba(52,211,153,0.25);
 }
 
 .badge-auth {
-    color: var(--text-2);
-    background: rgba(100,116,139,0.08);
-    border: 1px solid rgba(100,116,139,0.15);
+    color: var(--t2);
+    background: rgba(148,163,184,0.08);
+    border: 1px solid rgba(148,163,184,0.2);
 }
 
 .card-arrow {
-    color: rgba(226,232,240,0.2);
-    font-size: 1.1rem;
-    font-weight: 300;
-    transition: transform 0.3s ease, color 0.3s ease;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--t2);
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
 }
 
 
 /* ============================================
    Clickable Card Overlay — :has() system
-   Makes the invisible st.page_link fill the
-   entire card area so the whole card is one
-   big clickable link.
    ============================================ */
 [data-testid="stVerticalBlock"]:has(.space-card) {
     position: relative;
@@ -349,26 +390,40 @@ h1, h2, h3, h4 {
     cursor: pointer !important;
 }
 
-[data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a p {
+[data-testid="stVerticalBlock"]:has(.space-card) [data-testid="stPageLink"] a * {
     display: none !important;
 }
 
-/* Hover effect — triggered on parent, styles the card */
+/* ── Card hover — glass brightens, accent expands, arrow activates ── */
 [data-testid="stVerticalBlock"]:has(.space-card):hover .space-card {
-    background: var(--glass-hover);
-    border-color: var(--glass-border-hover);
-    box-shadow: 0 0 30px rgba(59,130,246,0.07), 0 8px 32px rgba(0,0,0,0.25);
-    transform: translateY(-3px);
+    background: var(--glass-up);
+    border-color: var(--glass-border-up);
+    box-shadow:
+        0 0 40px rgba(59,130,246,0.06),
+        0 8px 32px rgba(0,0,0,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    transform: translateY(-4px);
 }
 
-[data-testid="stVerticalBlock"]:has(.space-card):hover .card-icon-ring {
-    background: rgba(var(--rc), 0.14);
-    box-shadow: 0 0 18px rgba(var(--rc), 0.12);
+[data-testid="stVerticalBlock"]:has(.space-card):hover .space-card::before {
+    opacity: 0.9;
+    left: 10%;
+    right: 10%;
+}
+
+[data-testid="stVerticalBlock"]:has(.space-card):hover .card-icon-wrap {
+    border-color: rgba(255,255,255,0.12);
+}
+
+[data-testid="stVerticalBlock"]:has(.space-card):hover .card-icon-wrap::after {
+    opacity: 0.3;
 }
 
 [data-testid="stVerticalBlock"]:has(.space-card):hover .card-arrow {
-    color: var(--accent-bright);
-    transform: translateX(4px);
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #FFF;
+    box-shadow: 0 0 12px var(--blue-glow);
 }
 
 
@@ -385,7 +440,7 @@ h1, h2, h3, h4 {
    ============================================ */
 .stButton > button {
     border-radius: var(--r-pill);
-    font-family: var(--f-body);
+    font-family: var(--f-body) !important;
     font-weight: 500;
     font-size: 0.92rem;
     letter-spacing: 0.01em;
@@ -394,52 +449,50 @@ h1, h2, h3, h4 {
     padding: 0.55rem 1.5rem;
 }
 
-/* Primary — blue glow */
 .stButton > button[kind="primary"],
 .stButton > button[data-testid="stBaseButton-primary"] {
-    background: var(--accent) !important;
-    color: #FFFFFF !important;
+    background: var(--blue) !important;
+    color: #FFF !important;
     border: none !important;
-    box-shadow: 0 0 15px rgba(59,130,246,0.25), 0 2px 8px rgba(0,0,0,0.3);
+    box-shadow: 0 0 18px rgba(59,130,246,0.3), 0 2px 8px rgba(0,0,0,0.4);
 }
 
 .stButton > button[kind="primary"]:hover,
 .stButton > button[data-testid="stBaseButton-primary"]:hover {
-    background: var(--accent-deep) !important;
-    box-shadow: 0 0 25px rgba(59,130,246,0.35), 0 4px 16px rgba(0,0,0,0.3);
+    background: #2563EB !important;
+    box-shadow: 0 0 28px rgba(59,130,246,0.4), 0 4px 16px rgba(0,0,0,0.4);
+    transform: translateY(-1px);
 }
 
-/* Secondary — outline glow */
 .stButton > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]) {
-    background: transparent;
-    color: var(--accent-bright);
-    border: 1px solid rgba(59,130,246,0.35);
+    background: rgba(255,255,255,0.04);
+    color: var(--blue-bright);
+    border: 1px solid rgba(59,130,246,0.3);
 }
 
 .stButton > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]):hover {
     background: rgba(59,130,246,0.1);
-    border-color: rgba(59,130,246,0.6);
+    border-color: rgba(59,130,246,0.5);
     box-shadow: 0 0 15px rgba(59,130,246,0.12);
 }
 
-/* Download buttons */
 .stDownloadButton > button {
     width: 100%;
     border-radius: var(--r-pill);
-    font-family: var(--f-body);
+    font-family: var(--f-body) !important;
     font-weight: 500;
     font-size: 0.92rem;
     transition: all 0.25s ease;
-    background: transparent;
-    color: var(--accent-bright);
-    border: 1px solid rgba(59,130,246,0.35);
+    background: rgba(255,255,255,0.04);
+    color: var(--blue-bright);
+    border: 1px solid rgba(59,130,246,0.3);
 }
 
 .stDownloadButton > button:hover {
-    background: rgba(59,130,246,0.1);
-    border-color: rgba(59,130,246,0.6);
+    background: rgba(59,130,246,0.12);
+    border-color: rgba(59,130,246,0.5);
     box-shadow: 0 0 15px rgba(59,130,246,0.12);
-    color: #FFFFFF;
+    color: #FFF;
 }
 
 
@@ -451,17 +504,17 @@ h1, h2, h3, h4 {
 }
 
 .page-header h1 {
-    font-family: var(--f-display);
+    font-family: var(--f-display) !important;
     font-size: 1.85rem;
     font-weight: 700;
     letter-spacing: -0.025em;
     margin-bottom: 0.2rem;
-    color: var(--text-1);
+    color: var(--t1) !important;
 }
 
 .page-desc {
     font-family: var(--f-body);
-    color: var(--text-2);
+    color: var(--t2);
     font-size: 0.92rem;
     margin-bottom: 1.75rem;
     font-weight: 400;
@@ -469,7 +522,7 @@ h1, h2, h3, h4 {
 
 
 /* ============================================
-   Metric Cards — glass + mono numbers
+   Metric Cards — glass + mono readout
    ============================================ */
 [data-testid="stMetric"] {
     background: var(--glass) !important;
@@ -485,13 +538,13 @@ h1, h2, h3, h4 {
     font-family: var(--f-mono) !important;
     font-size: 1.6rem !important;
     font-weight: 700;
-    color: var(--text-1) !important;
+    color: var(--t1) !important;
     letter-spacing: -0.02em;
 }
 
 [data-testid="stMetricLabel"] {
     font-family: var(--f-mono) !important;
-    color: var(--text-2) !important;
+    color: var(--t2) !important;
     font-size: 0.6rem !important;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -503,30 +556,30 @@ h1, h2, h3, h4 {
    Input Areas — dark glass
    ============================================ */
 .stTextArea textarea {
-    background: rgba(255,255,255,0.03) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
+    background: rgba(255,255,255,0.035) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
     border-radius: var(--r-sm);
     font-size: 0.88rem;
-    color: var(--text-1) !important;
-    font-family: var(--f-body);
+    color: var(--t1) !important;
+    font-family: var(--f-body) !important;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .stTextArea textarea:focus {
     border-color: rgba(59,130,246,0.5) !important;
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.1), 0 0 15px rgba(59,130,246,0.08);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.1), 0 0 20px rgba(59,130,246,0.06);
 }
 
 .stTextArea textarea::placeholder {
-    color: rgba(226,232,240,0.2) !important;
+    color: rgba(241,245,249,0.2) !important;
 }
 
 .stTextInput input {
-    background: rgba(255,255,255,0.03) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
+    background: rgba(255,255,255,0.035) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
     border-radius: var(--r-sm);
-    color: var(--text-1) !important;
-    font-family: var(--f-body);
+    color: var(--t1) !important;
+    font-family: var(--f-body) !important;
     transition: border-color 0.2s ease;
 }
 
@@ -540,17 +593,16 @@ h1, h2, h3, h4 {
    Expander — dark glass panel
    ============================================ */
 [data-testid="stExpander"] {
-    background: rgba(255,255,255,0.02) !important;
-    border: 1px solid rgba(255,255,255,0.06) !important;
+    background: rgba(255,255,255,0.025) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
     border-radius: var(--r-md);
-    backdrop-filter: blur(10px);
 }
 
 [data-testid="stExpander"] summary {
-    font-family: var(--f-body);
+    font-family: var(--f-body) !important;
     font-weight: 500;
     font-size: 0.85rem;
-    color: var(--text-1);
+    color: var(--t1) !important;
 }
 
 
@@ -560,7 +612,7 @@ h1, h2, h3, h4 {
 [data-testid="stDataFrame"] {
     border-radius: var(--r-md);
     overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
 }
 
 .stDataFrame {
@@ -570,18 +622,14 @@ h1, h2, h3, h4 {
 
 
 /* ============================================
-   Sidebar
+   Selectbox / File Uploader / Sidebar
    ============================================ */
 section[data-testid="stSidebar"] {
-    background: var(--bg-mid);
+    background: var(--deep);
 }
 
-
-/* ============================================
-   Selectbox / Slider / File Uploader
-   ============================================ */
 .stSelectbox [data-baseweb="select"] {
-    background: rgba(255,255,255,0.03);
+    background: rgba(255,255,255,0.035);
 }
 
 [data-testid="stFileUploader"] {
@@ -590,43 +638,30 @@ section[data-testid="stSidebar"] {
 
 
 /* ============================================
-   Footer — instrument calibration style
+   Footer
    ============================================ */
 .platform-footer {
     text-align: center;
-    padding: 3rem 0 1.5rem 0;
+    padding: 2.5rem 0 1.5rem 0;
     font-family: var(--f-mono);
-    color: rgba(226,232,240,0.15);
+    color: var(--t3);
     font-size: 0.6rem;
-    font-weight: 400;
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
 
 /* ============================================
-   Scrollbar — minimal, dark
+   Scrollbar
    ============================================ */
-::-webkit-scrollbar {
-    width: 5px;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.08);
-    border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(255,255,255,0.15);
-}
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
 
 
 /* ============================================
-   Alert overrides
+   Alerts
    ============================================ */
 .stAlert {
     border-radius: var(--r-sm);
@@ -637,47 +672,22 @@ section[data-testid="stSidebar"] {
    Responsive — Tablet
    ============================================ */
 @media (max-width: 768px) {
-    .dash-header {
-        padding: 2rem 0 1.25rem 0;
-    }
-    .dash-title {
-        font-size: 1.65rem;
-    }
-    .space-card {
-        min-height: 175px;
-        padding: 1.5rem 1.25rem 1rem;
-    }
-    .space-card h3 {
-        font-size: 1.05rem;
-    }
-    .page-header h1 {
-        font-size: 1.5rem;
-    }
+    .dash-header { padding: 1.5rem 0 1rem 0; }
+    .dash-title { font-size: 1.75rem; }
+    .space-card { padding: 1.5rem 1.25rem 1rem; }
+    .space-card h3 { font-size: 1.05rem; }
+    .card-icon-wrap { width: 52px; height: 52px; font-size: 1.4rem; }
+    .page-header h1 { font-size: 1.5rem; }
 }
 
 /* ============================================
    Responsive — Phone
    ============================================ */
 @media (max-width: 480px) {
-    .dash-title {
-        font-size: 1.4rem;
-    }
-    .dash-subtitle {
-        font-size: 0.88rem;
-    }
-    .space-card {
-        min-height: 155px;
-        padding: 1.25rem 1rem 0.85rem;
-    }
-    .space-card h3 {
-        font-size: 0.95rem;
-    }
-    .card-icon-ring {
-        width: 44px;
-        height: 44px;
-        font-size: 1.2rem;
-    }
-    .page-header h1 {
-        font-size: 1.35rem;
-    }
+    .dash-title { font-size: 1.4rem; }
+    .dash-subtitle { font-size: 0.88rem; }
+    .space-card { padding: 1.25rem 1rem 0.85rem; }
+    .space-card h3 { font-size: 0.95rem; }
+    .card-icon-wrap { width: 44px; height: 44px; font-size: 1.2rem; border-radius: 12px; }
+    .page-header h1 { font-size: 1.35rem; }
 }

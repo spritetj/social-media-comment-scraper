@@ -1,7 +1,7 @@
 """
 Social Media Comment Scraper — Dashboard
 ==========================================
-Space-themed dashboard with fully clickable platform cards.
+Space observatory dashboard with fully clickable cards.
 """
 
 import streamlit as st
@@ -51,16 +51,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Platform cards — Row 1
-# Each column has: card visual (st.markdown) + invisible overlay (st.page_link)
-# CSS :has() stretches the page_link over the card for full clickability.
+# Row 1 — YouTube + TikTok
 r1c1, r1c2 = st.columns(2, gap="medium")
 
 with r1c1:
     st.markdown(
         """
-        <div class="space-card d1">
-            <div class="card-icon-ring ring-red"><span>🎬</span></div>
+        <div class="space-card accent-red d1">
+            <div class="card-icon-wrap ic-red"><span>🎬</span></div>
             <h3>YouTube</h3>
             <p>Extract comments and replies from any video.</p>
             <div class="card-meta">
@@ -76,8 +74,8 @@ with r1c1:
 with r1c2:
     st.markdown(
         """
-        <div class="space-card d2">
-            <div class="card-icon-ring ring-cyan"><span>🎵</span></div>
+        <div class="space-card accent-cyan d2">
+            <div class="card-icon-wrap ic-cyan"><span>🎵</span></div>
             <h3>TikTok</h3>
             <p>Video comments and reply threads.</p>
             <div class="card-meta">
@@ -90,14 +88,14 @@ with r1c2:
     )
     st.page_link("pages/2_🎵_TikTok.py", label="Open TikTok")
 
-# Platform cards — Row 2
+# Row 2 — Facebook + Instagram
 r2c1, r2c2 = st.columns(2, gap="medium")
 
 with r2c1:
     st.markdown(
         """
-        <div class="space-card d3">
-            <div class="card-icon-ring ring-blue"><span>📘</span></div>
+        <div class="space-card accent-blue d3">
+            <div class="card-icon-wrap ic-blue"><span>📘</span></div>
             <h3>Facebook</h3>
             <p>Scrape comments from posts, reels, and videos.</p>
             <div class="card-meta">
@@ -113,8 +111,8 @@ with r2c1:
 with r2c2:
     st.markdown(
         """
-        <div class="space-card d4">
-            <div class="card-icon-ring ring-violet"><span>📷</span></div>
+        <div class="space-card accent-violet d4">
+            <div class="card-icon-wrap ic-violet"><span>📷</span></div>
             <h3>Instagram</h3>
             <p>Post and reel comments with replies.</p>
             <div class="card-meta">
