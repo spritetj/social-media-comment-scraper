@@ -1,5 +1,5 @@
 """
-Progress UI — Friendly progress panel for scraping operations.
+Progress UI — Space-themed progress panel for scraping operations.
 Shows rotating fun messages, live counter, and progress bar.
 No internal logs or technical details are exposed to the user.
 """
@@ -118,24 +118,24 @@ class ProgressTracker:
         return (
             '<div class="prg-panel">'
             "<style>"
-            ".prg-panel{background:#FFFFFF;"
-            "border:1px solid #E8E8ED;"
+            ".prg-panel{background:rgba(255,255,255,0.035);"
+            "border:1px solid rgba(255,255,255,0.06);"
             "border-radius:14px;padding:1.1rem 1.25rem;"
-            "box-shadow:0 1px 3px rgba(0,0,0,0.04),0 6px 20px rgba(0,0,0,0.035);"
-            "font-family:'SF Pro Text','Helvetica Neue',Helvetica,Arial,sans-serif;"
+            "backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);"
+            "font-family:'Outfit','Helvetica Neue',sans-serif;"
             "margin:1rem 0}"
             ".prg-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.65rem}"
             ".prg-header-left{display:flex;align-items:center;gap:0.5rem}"
-            ".prg-dot{width:8px;height:8px;border-radius:50%;background:#AEAEB2;display:inline-block}"
-            ".prg-dot-active{background:#0071E3;animation:prg-pulse 1.5s ease infinite}"
-            ".prg-dot-done{background:#34C759}"
-            ".prg-label{font-size:0.85rem;color:#1D1D1F;font-weight:400}"
-            ".prg-counter{font-size:1.6rem;font-weight:700;color:#1D1D1F;"
-            "font-family:'SF Pro Display','Helvetica Neue',sans-serif;letter-spacing:-0.02em;line-height:1}"
-            ".prg-bar{height:3px;background:#E8E8ED;border-radius:2px;overflow:hidden}"
+            ".prg-dot{width:8px;height:8px;border-radius:50%;background:rgba(226,232,240,0.2);display:inline-block}"
+            ".prg-dot-active{background:#3B82F6;box-shadow:0 0 8px rgba(59,130,246,0.4);animation:prg-pulse 1.5s ease infinite}"
+            ".prg-dot-done{background:#34D399;box-shadow:0 0 8px rgba(52,211,153,0.4)}"
+            ".prg-label{font-size:0.85rem;color:#E2E8F0;font-weight:400}"
+            ".prg-counter{font-size:1.6rem;font-weight:700;color:#E2E8F0;"
+            "font-family:'JetBrains Mono','SF Mono',monospace;letter-spacing:-0.02em;line-height:1}"
+            ".prg-bar{height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden}"
             ".prg-bar-fill{height:100%;border-radius:2px;transition:width 0.6s cubic-bezier(0.4,0,0.2,1)}"
-            ".prg-bar-active{background:#0071E3}"
-            ".prg-bar-done{background:#34C759}"
+            ".prg-bar-active{background:#3B82F6;box-shadow:0 0 8px rgba(59,130,246,0.3)}"
+            ".prg-bar-done{background:#34D399;box-shadow:0 0 8px rgba(52,211,153,0.3)}"
             "@keyframes prg-pulse{0%,100%{opacity:1}50%{opacity:0.4}}"
             "</style>"
             '<div class="prg-header">'
