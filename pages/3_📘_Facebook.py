@@ -22,8 +22,8 @@ css_path = Path(__file__).parent.parent / "assets" / "style.css"
 if css_path.exists():
     st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 
-# Navigation — compact centered
-_, n1, n2, n3, n4, n5, n6, _ = st.columns([3, 1, 1, 1, 1, 1, 0.8, 3])
+# Navigation — compact horizontal row
+n1, n2, n3, n4, n5 = st.columns(5)
 with n1:
     st.page_link("Home.py", label="Home")
 with n2:
@@ -34,11 +34,6 @@ with n4:
     st.page_link("pages/3_📘_Facebook.py", label="Facebook")
 with n5:
     st.page_link("pages/4_📷_Instagram.py", label="Instagram")
-with n6:
-    qr_path = Path(__file__).parent.parent / "assets" / "qr_payment.jpeg"
-    if qr_path.exists():
-        with st.popover("Donate"):
-            st.image(str(qr_path), caption="PromptPay", width=200)
 
 st.markdown('<hr class="nav-divider">', unsafe_allow_html=True)
 
