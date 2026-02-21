@@ -4,7 +4,7 @@
 
 /* --- CSS Variables --- */
 :root {
-    --bg-primary: #000000;
+    --bg-primary: #121212;
     --bg-elevated: #1C1C1E;
     --bg-secondary: #2C2C2E;
     --bg-tertiary: #3A3A3C;
@@ -430,6 +430,26 @@ section[data-testid="stSidebar"] .stMarkdown h3 {
 [data-testid="stPopover"] button {
     border-radius: 980px;
     font-size: 0.85rem;
+}
+
+/* ============================================
+   Top Navigation Bar
+   ============================================ */
+[data-testid="stPageLink"] {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 980px;
+    transition: all 0.25s ease;
+}
+
+[data-testid="stPageLink"]:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-secondary);
+}
+
+[data-testid="stPageLink"][aria-current="page"] {
+    background: var(--accent-soft);
+    border-color: var(--accent-muted);
 }
 
 /* ============================================

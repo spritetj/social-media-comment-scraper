@@ -30,6 +30,19 @@ with st.sidebar:
         with st.popover("Donate"):
             st.image(str(qr_path), caption="PromptPay", width=200)
 
+# Navigation bar
+nav_cols = st.columns(5)
+with nav_cols[0]:
+    st.page_link("Home.py", label="Home", icon="🏠")
+with nav_cols[1]:
+    st.page_link("pages/1_🎬_YouTube.py", label="YouTube", icon="🎬")
+with nav_cols[2]:
+    st.page_link("pages/2_🎵_TikTok.py", label="TikTok", icon="🎵")
+with nav_cols[3]:
+    st.page_link("pages/3_📘_Facebook.py", label="Facebook", icon="📘")
+with nav_cols[4]:
+    st.page_link("pages/4_📷_Instagram.py", label="Instagram", icon="📷")
+
 # Page header
 st.markdown('<div class="page-header"><h1>Facebook</h1></div>', unsafe_allow_html=True)
 st.markdown('<p class="page-desc">Scrape comments from Facebook posts, reels, and videos.</p>', unsafe_allow_html=True)
