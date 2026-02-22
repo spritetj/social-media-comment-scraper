@@ -5,11 +5,33 @@ Python 3.14 broke nest_asyncio + aiohttp compatibility because
 asyncio.current_task() returns None in nested loops, and aiohttp's
 internal timer requires a proper task context.
 
-Solution: run async code in a separate thread with its own event loop.
+Solution: run async code in a separate thread with its own event loop,
+propagating the Streamlit ScriptRunContext so session_state and UI
+calls work from the child thread.
 """
 
 import asyncio
 import threading
+
+
+def _get_streamlit_ctx():
+    """Get the current Streamlit ScriptRunContext (if running in Streamlit)."""
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+        return get_script_run_ctx()
+    except ImportError:
+        return None
+
+
+def _set_streamlit_ctx(thread, ctx):
+    """Attach a Streamlit ScriptRunContext to the given thread."""
+    if ctx is None:
+        return
+    try:
+        from streamlit.runtime.scriptrunner import add_script_run_ctx
+        add_script_run_ctx(thread, ctx)
+    except ImportError:
+        pass
 
 
 def run_async(coro):
@@ -18,6 +40,9 @@ def run_async(coro):
     This avoids the Python 3.14 + nest_asyncio + aiohttp incompatibility
     where aiohttp's internal timeout context manager requires
     asyncio.current_task() to return a proper task.
+
+    The Streamlit ScriptRunContext is propagated to the child thread so
+    that st.session_state and UI placeholder updates work correctly.
 
     Args:
         coro: An awaitable coroutine
@@ -30,6 +55,7 @@ def run_async(coro):
     """
     result = [None]
     error = [None]
+    ctx = _get_streamlit_ctx()
 
     def _target():
         try:
@@ -41,6 +67,7 @@ def run_async(coro):
             error[0] = e
 
     thread = threading.Thread(target=_target)
+    _set_streamlit_ctx(thread, ctx)
     thread.start()
     thread.join(timeout=600)  # 10 min max
 

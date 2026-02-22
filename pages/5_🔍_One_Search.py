@@ -132,7 +132,9 @@ if search_btn and topic.strip():
         tracker.complete(result.get("total_comments", 0))
 
     except Exception as e:
+        import traceback
         st.error(f"One Search failed: {e}")
+        st.code(traceback.format_exc(), language="text")
         result = None
 
     if result and result.get("total_comments", 0) > 0:
