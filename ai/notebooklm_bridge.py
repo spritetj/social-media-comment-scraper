@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -48,12 +49,23 @@ class NotebookLMBridge:
             return  # already running
 
         env = os.environ.copy()
-        # Ensure Node.js can find npx
-        env.setdefault("PATH", "/usr/local/bin:/usr/bin:/bin")
+        # Streamlit may run with a restricted PATH that excludes Node.js.
+        # Prepend common Node.js installation paths to ensure npx is found.
+        extra_paths = [
+            "/opt/homebrew/bin",        # macOS Homebrew ARM
+            "/usr/local/bin",           # macOS Homebrew Intel / Linux
+            os.path.expanduser("~/.nvm/current/bin"),  # nvm
+            os.path.expanduser("~/.local/bin"),
+        ]
+        existing_path = env.get("PATH", "/usr/bin:/bin")
+        env["PATH"] = ":".join(extra_paths) + ":" + existing_path
+
+        # Try to resolve npx to an absolute path for reliability
+        npx_cmd = shutil.which("npx", path=env["PATH"]) or "npx"
 
         try:
             self._process = subprocess.Popen(
-                ["npx", "-y", "notebooklm-mcp"],
+                [npx_cmd, "-y", "notebooklm-mcp"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
