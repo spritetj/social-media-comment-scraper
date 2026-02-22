@@ -208,19 +208,44 @@ def _render_temporal(data: dict):
             st.bar_chart(df_hour.set_index("Hour"), height=250)
 
 
+def _get_llm_provider_and_key() -> tuple[str | None, str | None]:
+    """Detect active LLM provider and key from session state or env vars.
+
+    Mirrors the same logic as ai.client.LLMClient so the UI gate
+    matches the actual availability.
+    """
+    import os
+    # 1. Session state
+    provider = st.session_state.get("active_provider")
+    if provider:
+        keys = st.session_state.get("api_keys", {})
+        if keys.get(provider):
+            return provider, keys[provider]
+    # 2. Environment variables
+    env_map = {
+        "claude": "ANTHROPIC_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "gemini": "GOOGLE_API_KEY",
+    }
+    for prov, env_var in env_map.items():
+        key = os.environ.get(env_var)
+        if key:
+            return prov, key
+    return None, None
+
+
 def _render_ai_section():
     """Render AI analysis CTA or results."""
     st.markdown("### AI-Powered Analysis")
 
-    # Check if API key is configured
-    api_keys = st.session_state.get("api_keys", {})
-    active_provider = st.session_state.get("active_provider")
+    # Check if API key is configured (session state OR env vars)
+    active_provider, api_key = _get_llm_provider_and_key()
 
-    if not active_provider or not api_keys.get(active_provider):
+    if not active_provider or not api_key:
         st.info(
             "Unlock deeper insights with AI analysis. "
-            "Configure your API key in Settings to access pain point extraction, "
-            "feature request mining, competitive intelligence, and more."
+            "Configure your API key in Settings (or set an environment variable) to access "
+            "pain point extraction, feature request mining, competitive intelligence, and more."
         )
         st.page_link("pages/7_⚙️_Settings.py", label="Go to Settings", use_container_width=True)
         return
