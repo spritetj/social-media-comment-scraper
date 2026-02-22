@@ -208,6 +208,116 @@ def _render_temporal(data: dict):
             st.bar_chart(df_hour.set_index("Hour"), height=250)
 
 
+def render_platform_comparison(result: dict):
+    """Render cross-platform comparison dashboard.
+
+    Only shown when 2+ platforms have comments.
+    Uses AI tags (ai_sentiment) if available, otherwise falls back to raw counts.
+    """
+    import pandas as pd
+    from collections import Counter
+
+    comments = result.get("comments_clean", [])
+    if not comments:
+        return
+
+    # Group by platform
+    by_platform: dict[str, list[dict]] = {}
+    for c in comments:
+        p = c.get("platform", "unknown")
+        by_platform.setdefault(p, []).append(c)
+
+    # Only show if 2+ platforms have data
+    platforms_with_data = {p: cs for p, cs in by_platform.items() if cs}
+    if len(platforms_with_data) < 2:
+        return
+
+    st.markdown("---")
+    st.markdown("### Cross-Platform Comparison")
+
+    # --- Sentiment distribution per platform ---
+    has_ai_tags = any(c.get("ai_sentiment") for c in comments)
+
+    sentiment_data = []
+    for platform, cs in sorted(platforms_with_data.items()):
+        counts = Counter()
+        for c in cs:
+            if has_ai_tags:
+                s = c.get("ai_sentiment", "neutral")
+            else:
+                s = "neutral"
+            counts[s] += 1
+        total = len(cs)
+        for sent in ["positive", "neutral", "negative", "mixed"]:
+            pct = round(counts.get(sent, 0) / total * 100, 1) if total else 0
+            sentiment_data.append({
+                "Platform": platform.title(),
+                "Sentiment": sent.title(),
+                "Percentage": pct,
+            })
+
+    if has_ai_tags and sentiment_data:
+        st.markdown("#### Sentiment by Platform")
+        df_sent = pd.DataFrame(sentiment_data)
+        # Pivot for grouped bar chart
+        df_pivot = df_sent.pivot(index="Platform", columns="Sentiment", values="Percentage").fillna(0)
+        # Reorder columns
+        col_order = [c for c in ["Positive", "Neutral", "Negative", "Mixed"] if c in df_pivot.columns]
+        df_pivot = df_pivot[col_order]
+        st.bar_chart(df_pivot, height=300)
+
+    # --- Engagement comparison ---
+    st.markdown("#### Engagement by Platform")
+    eng_cols = st.columns(len(platforms_with_data))
+    for i, (platform, cs) in enumerate(sorted(platforms_with_data.items())):
+        with eng_cols[i]:
+            total_likes = sum(c.get("likes", 0) for c in cs)
+            avg_likes = round(total_likes / len(cs), 1) if cs else 0
+            replies = sum(1 for c in cs if c.get("is_reply"))
+            reply_rate = round(replies / len(cs) * 100, 1) if cs else 0
+            st.markdown(f"**{platform.title()}**")
+            st.metric("Comments", f"{len(cs):,}")
+            st.metric("Avg Likes", f"{avg_likes}")
+            st.metric("Reply Rate", f"{reply_rate}%")
+
+    # --- Top keywords per platform ---
+    st.markdown("#### Top Keywords by Platform")
+    kw_cols = st.columns(len(platforms_with_data))
+    for i, (platform, cs) in enumerate(sorted(platforms_with_data.items())):
+        with kw_cols[i]:
+            st.markdown(f"**{platform.title()}**")
+            # Simple frequency-based keywords
+            from collections import Counter
+            words = Counter()
+            for c in cs:
+                text = c.get("text", "").lower()
+                for w in text.split():
+                    w = w.strip(".,!?;:\"'()[]{}#@")
+                    if len(w) > 2 and w not in _STOP_WORDS:
+                        words[w] += 1
+            top_kw = words.most_common(10)
+            if top_kw:
+                for word, count in top_kw:
+                    st.markdown(f"- **{word}** ({count})")
+            else:
+                st.caption("No keywords")
+
+
+# Minimal stopwords for cross-platform keyword comparison
+_STOP_WORDS = {
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "could",
+    "should", "may", "might", "can", "shall", "to", "of", "in", "for",
+    "on", "with", "at", "by", "from", "as", "into", "about", "like",
+    "and", "but", "or", "nor", "not", "so", "yet", "this", "that",
+    "these", "those", "it", "its", "he", "she", "they", "we", "you",
+    "i", "me", "my", "your", "his", "her", "our", "their", "what",
+    "which", "who", "whom", "how", "when", "where", "why", "all",
+    "each", "every", "both", "few", "more", "most", "other", "some",
+    "such", "than", "too", "very", "just", "also", "now", "then",
+}
+
+
 def _get_llm_provider_and_key() -> tuple[str | None, str | None]:
     """Detect active LLM provider and key from session state or env vars.
 
@@ -218,6 +328,9 @@ def _get_llm_provider_and_key() -> tuple[str | None, str | None]:
     # 1. Session state
     provider = st.session_state.get("active_provider")
     if provider:
+        # NotebookLM doesn't need an API key
+        if provider == "notebooklm":
+            return "notebooklm", "notebooklm-no-key-needed"
         keys = st.session_state.get("api_keys", {})
         if keys.get(provider):
             return provider, keys[provider]

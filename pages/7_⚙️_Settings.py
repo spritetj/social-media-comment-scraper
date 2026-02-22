@@ -36,35 +36,122 @@ st.markdown(
 from utils.api_keys import PROVIDERS, save_api_key, get_api_key, get_active_provider, set_active_provider, validate_api_key
 
 # ---------------------------------------------------------------------------
-# Active provider selector
+# Analysis Engine Toggle (NotebookLM vs Paid API)
 # ---------------------------------------------------------------------------
 
-st.markdown("### Active Provider")
+st.markdown("### Analysis Engine")
 
-provider_options = list(PROVIDERS.keys())
-provider_labels = [PROVIDERS[p]["name"] for p in provider_options]
-current = get_active_provider()
-current_idx = provider_options.index(current) if current in provider_options else 0
+engine_options = {
+    "notebooklm": "NotebookLM (Free - powered by Gemini)",
+    "paid_api": "Paid API (Claude / ChatGPT / Gemini)",
+}
 
-selected_label = st.radio(
-    "Choose which AI provider to use for analysis",
-    options=provider_labels,
-    index=current_idx,
+current_provider = get_active_provider()
+# Map current provider to engine type
+current_engine = "notebooklm" if current_provider == "notebooklm" else "paid_api"
+
+engine_choice = st.radio(
+    "Choose your analysis engine",
+    options=list(engine_options.keys()),
+    format_func=lambda x: engine_options[x],
+    index=0 if current_engine == "notebooklm" else 1,
     horizontal=True,
+    key="engine_toggle",
 )
-selected_provider = provider_options[provider_labels.index(selected_label)]
-set_active_provider(selected_provider)
 
-st.markdown("---")
+if engine_choice == "notebooklm":
+    # Set NotebookLM as active provider
+    set_active_provider("notebooklm")
+
+    st.markdown(
+        '<div style="background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.2);'
+        'border-radius:8px;padding:1rem;margin:0.5rem 0">'
+        '<p style="font-size:0.88rem;color:#94A3B8;margin:0">'
+        'NotebookLM provides <strong style="color:#34D399">free</strong> AI-powered analysis '
+        'backed by Google Gemini. You upload your comments to a NotebookLM notebook, '
+        'then the app queries it for insights.</p>'
+        '<p style="font-size:0.82rem;color:#64748B;margin:0.5rem 0 0 0">'
+        'Free tier: 50 queries/day (enough for 7-10 full analyses)</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # NotebookLM status section
+    col_status, col_auth = st.columns([2, 1])
+    with col_status:
+        # Query usage counter
+        try:
+            from ai.notebooklm_bridge import NotebookLMBridge
+            usage = NotebookLMBridge.get_daily_usage()
+            remaining = NotebookLMBridge.queries_remaining()
+            count = usage.get("count", 0)
+
+            bar_pct = min(count / 50 * 100, 100)
+            bar_color = "#34D399" if count < 40 else "#FBBF24" if count < 50 else "#F87171"
+            st.markdown(
+                f'<div style="font-size:0.85rem;margin:0.5rem 0">'
+                f'Queries today: <strong>{count}</strong> / 50 '
+                f'<span style="color:#64748B">({remaining} remaining)</span>'
+                f'</div>'
+                f'<div style="background:rgba(255,255,255,0.05);border-radius:4px;height:6px;margin:4px 0">'
+                f'<div style="background:{bar_color};height:100%;border-radius:4px;width:{bar_pct}%"></div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if count >= 40:
+                st.warning(f"Approaching daily limit ({remaining} queries remaining).")
+        except Exception:
+            st.caption("Query tracking will start after first analysis.")
+
+    with col_auth:
+        # Notebook URL (persistent)
+        nlm_url = st.text_input(
+            "Default Notebook URL",
+            value=st.session_state.get("nlm_notebook_url", ""),
+            placeholder="https://notebooklm.google.com/notebook/...",
+            key="nlm_url_settings",
+        )
+        if nlm_url:
+            st.session_state["nlm_notebook_url"] = nlm_url
+
+    st.markdown("---")
+
+else:
+    # Paid API mode — show existing provider selector
+    st.markdown("---")
+
+    # ---------------------------------------------------------------------------
+    # Active provider selector (only shown in Paid API mode)
+    # ---------------------------------------------------------------------------
+
+    st.markdown("### Active Provider")
+
+    provider_options = list(PROVIDERS.keys())
+    provider_labels = [PROVIDERS[p]["name"] for p in provider_options]
+    current = get_active_provider()
+    current_idx = provider_options.index(current) if current in provider_options else 0
+
+    selected_label = st.radio(
+        "Choose which AI provider to use for analysis",
+        options=provider_labels,
+        index=current_idx,
+        horizontal=True,
+    )
+    selected_provider = provider_options[provider_labels.index(selected_label)]
+    set_active_provider(selected_provider)
+
+    st.markdown("---")
 
 # ---------------------------------------------------------------------------
-# Per-provider API key sections
+# Per-provider API key sections (always shown for reference)
 # ---------------------------------------------------------------------------
 
 st.markdown("### API Keys")
+if engine_choice == "notebooklm":
+    st.caption("API keys are only needed for the Paid API engine. Configure them here for when you switch.")
 
 for provider_slug, info in PROVIDERS.items():
-    with st.expander(f"{info['name']}", expanded=(provider_slug == selected_provider)):
+    with st.expander(f"{info['name']}", expanded=(engine_choice == "paid_api" and provider_slug == get_active_provider())):
         st.markdown(
             f'<p style="font-size:0.88rem;color:#94A3B8;margin-bottom:0.75rem">{info["description"]}</p>',
             unsafe_allow_html=True,

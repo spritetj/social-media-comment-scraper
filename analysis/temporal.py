@@ -31,7 +31,12 @@ def _parse_date(date_str: str) -> datetime | None:
 
     for fmt in formats:
         try:
-            return datetime.strptime(clean, fmt)
+            dt = datetime.strptime(clean, fmt)
+            # Strip timezone info to avoid offset-naive vs offset-aware
+            # comparison errors when mixing datetime formats
+            if dt.tzinfo is not None:
+                dt = dt.replace(tzinfo=None)
+            return dt
         except (ValueError, TypeError):
             continue
 

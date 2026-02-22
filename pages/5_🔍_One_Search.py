@@ -55,7 +55,18 @@ except ImportError:
 # Workflow state
 # ═══════════════════════════════════════════════════════════════════════════
 
-_STEP_LABELS = ["Input", "Queries", "URLs", "Scraping", "Results"]
+_STEP_LABELS_DEFAULT = ["Input", "Queries", "URLs", "Scraping", "Results"]
+_STEP_LABELS_NLM = ["Input", "Queries", "URLs", "Scraping", "NotebookLM Setup", "Results"]
+
+
+def _is_nlm_mode() -> bool:
+    """Check if NotebookLM is the active analysis provider."""
+    return st.session_state.get("active_provider") == "notebooklm"
+
+
+def _get_step_labels() -> list[str]:
+    """Get step labels based on current mode."""
+    return _STEP_LABELS_NLM if _is_nlm_mode() else _STEP_LABELS_DEFAULT
 
 
 def _get_wf() -> dict:
@@ -121,8 +132,9 @@ def _restore_operators(clean_query: str, platform: str, date_range: str) -> str:
 
 def _render_step_indicator(current_step: int):
     """Render a horizontal step progress bar."""
+    step_labels = _get_step_labels()
     steps_html = ""
-    for i, label in enumerate(_STEP_LABELS):
+    for i, label in enumerate(step_labels):
         if i < current_step:
             cls = "osstep-done"
             icon = "&#10003;"
@@ -545,7 +557,12 @@ def _render_scraping():
         }
 
         wf["result"] = result
-        wf["step"] = 4
+
+        # In NLM mode, go to NLM setup step (step 4); otherwise go to Results (step 4)
+        if _is_nlm_mode():
+            wf["step"] = 4  # NLM Setup step
+        else:
+            wf["step"] = 4  # Results step (same index, but different label)
         st.rerun()
 
     except Exception as e:
@@ -749,6 +766,524 @@ def _render_customer_insight(insight: dict, topic: str):
                                 st.caption(f"Mitigation: {r['mitigation']}")
 
 
+def _render_cross_platform(result: dict):
+    """Render cross-platform comparison if 2+ platforms have data."""
+    try:
+        from utils.analysis_ui import render_platform_comparison
+        render_platform_comparison(result)
+    except Exception:
+        pass
+
+
+def _render_aspect_heatmap(result: dict):
+    """Render aspect-based sentiment heatmap from AI tags."""
+    tag_summary = result.get("tag_summary")
+    if not tag_summary:
+        return
+
+    aspect_sentiment = tag_summary.get("aspect_sentiment", {})
+    if not aspect_sentiment:
+        return
+
+    st.markdown("---")
+    st.markdown("### Aspect-Based Sentiment")
+    st.caption("What people specifically like and dislike — auto-discovered from comments.")
+
+    # Build heatmap data
+    rows = []
+    for aspect, counts in aspect_sentiment.items():
+        pos = counts.get("positive", 0)
+        neu = counts.get("neutral", 0)
+        neg = counts.get("negative", 0)
+        total = pos + neu + neg
+        if total > 0:
+            rows.append({
+                "Aspect": aspect.title(),
+                "Positive": pos,
+                "Neutral": neu,
+                "Negative": neg,
+                "Total": total,
+            })
+
+    if not rows:
+        return
+
+    # Sort by total mentions descending
+    rows.sort(key=lambda r: r["Total"], reverse=True)
+    # Limit to top 15 aspects
+    rows = rows[:15]
+
+    df = pd.DataFrame(rows)
+
+    # Render as colored table
+    col_map = {
+        "Positive": "#34D399",
+        "Neutral": "#94A3B8",
+        "Negative": "#F87171",
+    }
+
+    # Build HTML table
+    html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem">'
+    html += '<tr style="border-bottom:2px solid rgba(255,255,255,0.1)">'
+    for col in ["Aspect", "Positive", "Neutral", "Negative", "Total"]:
+        html += f'<th style="text-align:left;padding:8px 12px;color:#94A3B8">{col}</th>'
+    html += '</tr>'
+
+    max_count = max(r["Total"] for r in rows) if rows else 1
+    for row in rows:
+        html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.05)">'
+        html += f'<td style="padding:8px 12px;font-weight:600">{row["Aspect"]}</td>'
+        for sent in ["Positive", "Neutral", "Negative"]:
+            val = row[sent]
+            color = col_map[sent]
+            # Bar width proportional to count
+            bar_width = int(val / max_count * 100) if max_count > 0 else 0
+            html += (
+                f'<td style="padding:8px 12px">'
+                f'<div style="display:flex;align-items:center;gap:6px">'
+                f'<div style="background:{color};height:8px;width:{bar_width}%;'
+                f'border-radius:4px;min-width:2px;opacity:0.7"></div>'
+                f'<span style="color:{color};font-size:0.8rem">{val}</span>'
+                f'</div></td>'
+            )
+        html += f'<td style="padding:8px 12px;color:#64748B">{row["Total"]}</td>'
+        html += '</tr>'
+    html += '</table>'
+
+    st.markdown(html, unsafe_allow_html=True)
+
+    # Clickable aspect drill-down
+    comments = result.get("comments_clean", [])
+    if comments:
+        aspect_names = [r["Aspect"].lower() for r in rows]
+        selected_aspect = st.selectbox(
+            "Drill into aspect",
+            ["(select an aspect)"] + [r["Aspect"] for r in rows],
+            key="aspect_drill",
+        )
+        if selected_aspect and selected_aspect != "(select an aspect)":
+            aspect_lower = selected_aspect.lower()
+            matching = []
+            for c in comments:
+                for asp in c.get("ai_aspects", []):
+                    if asp.get("aspect", "").lower() == aspect_lower:
+                        matching.append({
+                            "text": c.get("text", ""),
+                            "platform": c.get("platform", ""),
+                            "aspect_sentiment": asp.get("sentiment", "neutral"),
+                            "likes": c.get("likes", 0),
+                        })
+                        break
+            if matching:
+                st.markdown(f"**{len(matching)} comments about {selected_aspect}:**")
+                for m in matching[:20]:
+                    sent_color = {
+                        "positive": "#34D399", "negative": "#F87171", "neutral": "#94A3B8",
+                    }.get(m["aspect_sentiment"], "#94A3B8")
+                    st.markdown(
+                        f'<div style="border-left:3px solid {sent_color};padding:4px 12px;'
+                        f'margin:4px 0;font-size:0.85rem">{m["text"][:300]}'
+                        f'<span style="color:#64748B;font-size:0.75rem"> — {m["platform"].title()}'
+                        f' | {m["likes"]} likes</span></div>',
+                        unsafe_allow_html=True,
+                    )
+
+
+def _render_comment_explorer(result: dict, wf: dict):
+    """Render the smart comment explorer with filters and search."""
+    comments = result.get("comments_clean", [])
+    if not comments:
+        return
+
+    st.markdown("---")
+    st.markdown("### Comment Explorer")
+
+    has_tags = any(c.get("ai_sentiment") for c in comments)
+    # Full AI tags include intent and aspects (from LLM tagger, not VADER)
+    has_full_tags = any(c.get("ai_intent") for c in comments)
+
+    # Filter controls
+    filter_cols = st.columns([1, 1, 1, 1, 2])
+
+    with filter_cols[0]:
+        all_platforms = sorted(set(c.get("platform", "unknown") for c in comments))
+        sel_platforms = st.multiselect(
+            "Platform", all_platforms,
+            default=all_platforms,
+            format_func=str.title,
+            key="exp_platform",
+        )
+
+    with filter_cols[1]:
+        if has_tags:
+            sentiments = ["positive", "negative", "neutral", "mixed"]
+            sel_sentiments = st.multiselect(
+                "Sentiment", sentiments,
+                default=sentiments,
+                format_func=str.title,
+                key="exp_sentiment",
+            )
+        else:
+            sel_sentiments = None
+
+    with filter_cols[2]:
+        # Only show intent filter when full LLM tags are available (not VADER-only)
+        if has_full_tags:
+            all_intents = sorted(set(c.get("ai_intent", "other") for c in comments))
+            sel_intents = st.multiselect(
+                "Intent", all_intents,
+                default=all_intents,
+                format_func=lambda x: x.replace("_", " ").title(),
+                key="exp_intent",
+            )
+        else:
+            sel_intents = None
+
+    with filter_cols[3]:
+        sort_by = st.selectbox(
+            "Sort by",
+            ["likes", "date", "sentiment"],
+            format_func=lambda x: x.title(),
+            key="exp_sort",
+        )
+
+    with filter_cols[4]:
+        search_text = st.text_input(
+            "Search comments",
+            placeholder="Type to search...",
+            key="exp_search",
+        )
+
+    # Apply filters
+    filtered = comments
+    if sel_platforms:
+        filtered = [c for c in filtered if c.get("platform", "unknown") in sel_platforms]
+    if sel_sentiments and has_tags:
+        filtered = [c for c in filtered if c.get("ai_sentiment", "neutral") in sel_sentiments]
+    if sel_intents and has_tags:
+        filtered = [c for c in filtered if c.get("ai_intent", "other") in sel_intents]
+    if search_text:
+        search_lower = search_text.lower()
+        filtered = [c for c in filtered if search_lower in c.get("text", "").lower()]
+
+    # Sort
+    if sort_by == "likes":
+        filtered.sort(key=lambda c: c.get("likes", 0), reverse=True)
+    elif sort_by == "date":
+        filtered.sort(key=lambda c: c.get("date", ""), reverse=True)
+    elif sort_by == "sentiment" and has_tags:
+        sent_order = {"negative": 0, "mixed": 1, "neutral": 2, "positive": 3}
+        filtered.sort(key=lambda c: sent_order.get(c.get("ai_sentiment", "neutral"), 2))
+
+    # Quick stats bar
+    total_all = len(comments)
+    total_shown = len(filtered)
+    stats_parts = [f"Showing **{total_shown:,}** of {total_all:,} comments"]
+    if has_tags and filtered:
+        from collections import Counter
+        sent_counts = Counter(c.get("ai_sentiment", "neutral") for c in filtered)
+        top_sent = sent_counts.most_common(1)[0] if sent_counts else ("neutral", 0)
+        pct = round(top_sent[1] / total_shown * 100) if total_shown else 0
+        stats_parts.append(f"{pct}% {top_sent[0]}")
+
+        # Top aspect
+        aspect_counts = Counter()
+        for c in filtered:
+            for a in c.get("ai_aspects", []):
+                aspect_counts[a.get("aspect", "")] += 1
+        if aspect_counts:
+            top_aspect = aspect_counts.most_common(1)[0][0]
+            stats_parts.append(f"Top aspect: {top_aspect}")
+
+    st.markdown(" | ".join(stats_parts))
+
+    # Render comments as cards
+    if not filtered:
+        st.info("No comments match your filters.")
+        return
+
+    # Show up to 100 comments with pagination
+    page_size = 50
+    total_pages = (total_shown + page_size - 1) // page_size
+    if total_pages > 1:
+        page = st.number_input(
+            "Page", min_value=1, max_value=total_pages, value=1, key="exp_page"
+        )
+    else:
+        page = 1
+
+    start_idx = (page - 1) * page_size
+    end_idx = min(start_idx + page_size, total_shown)
+    page_comments = filtered[start_idx:end_idx]
+
+    sent_colors = {
+        "positive": "#34D399", "negative": "#F87171",
+        "neutral": "#64748B", "mixed": "#FBBF24",
+    }
+
+    for c in page_comments:
+        text = c.get("text", "")[:500]
+        platform = c.get("platform", "unknown")
+        username = c.get("username", "Anonymous")
+        likes = c.get("likes", 0)
+        date = c.get("date", "")
+
+        # Build tag badges
+        badges = f'<span style="background:rgba(59,130,246,0.15);color:#60A5FA;padding:1px 6px;border-radius:3px;font-size:0.7rem;margin-right:4px">{platform.title()}</span>'
+
+        if has_tags:
+            sentiment = c.get("ai_sentiment", "neutral")
+            s_color = sent_colors.get(sentiment, "#64748B")
+            badges += f'<span style="background:{s_color}22;color:{s_color};padding:1px 6px;border-radius:3px;font-size:0.7rem;margin-right:4px">{sentiment}</span>'
+
+            # Intent and aspect badges only when full LLM tags are available
+            if has_full_tags:
+                intent = c.get("ai_intent", "other")
+                badges += f'<span style="background:rgba(139,92,246,0.15);color:#A78BFA;padding:1px 6px;border-radius:3px;font-size:0.7rem;margin-right:4px">{intent.replace("_", " ")}</span>'
+
+                # Aspect chips
+                for asp in c.get("ai_aspects", [])[:3]:
+                    a_name = asp.get("aspect", "")
+                    a_sent = asp.get("sentiment", "neutral")
+                    a_color = sent_colors.get(a_sent, "#64748B")
+                    badges += f'<span style="background:{a_color}15;color:{a_color};padding:1px 6px;border-radius:3px;font-size:0.68rem;margin-right:3px">{a_name}</span>'
+
+        st.markdown(
+            f'<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;'
+            f'padding:10px 14px;margin:4px 0">'
+            f'<div style="margin-bottom:4px">{badges}</div>'
+            f'<div style="font-size:0.88rem;line-height:1.5">{text}</div>'
+            f'<div style="font-size:0.72rem;color:#64748B;margin-top:4px">'
+            f'@{username} | {likes} likes | {date}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    if total_pages > 1:
+        st.caption(f"Page {page} of {total_pages}")
+
+
+def _regenerate_insight(wf: dict, result: dict):
+    """Regenerate the AI Customer Insight Report using current data."""
+    from ai.client import LLMClient
+    from ai.prompts import format_comments_for_prompt, CUSTOMER_INSIGHT_REPORT
+
+    all_clean = result.get("comments_clean", [])
+    platforms_str = ", ".join(wf["platforms"])
+    formatted = format_comments_for_prompt(all_clean[:500])
+
+    tag_context = ""
+    if result.get("tag_summary"):
+        ts = result["tag_summary"]
+        tag_context = (
+            f"\n\nAI TAG SUMMARY (pre-classified data):\n"
+            f"Sentiment: {ts.get('sentiment_distribution', {})}\n"
+            f"Emotions: {ts.get('emotion_distribution', {})}\n"
+            f"Intents: {ts.get('intent_distribution', {})}\n"
+            f"Urgency: {ts.get('urgency_distribution', {})}\n"
+            f"Aspect-Sentiment: {ts.get('aspect_sentiment', {})}\n"
+            f"Use this pre-classified data to ground your analysis with precise numbers.\n"
+        )
+
+    prompt = CUSTOMER_INSIGHT_REPORT.format(
+        comment_count=len(all_clean),
+        topic=wf["topic"],
+        platforms=platforms_str,
+        comments=formatted + tag_context,
+    )
+    client = LLMClient()
+    insight = run_async(client.analyze(prompt=prompt))
+    result["customer_insight"] = insight
+
+
+def _render_notebooklm_setup():
+    """Render NotebookLM setup step: export comments, get notebook URL, run analysis."""
+    wf = _get_wf()
+    result = wf.get("result")
+
+    if not result or not result.get("comments_clean"):
+        st.warning("No comments available for analysis.")
+        if st.button("Back to Scraping"):
+            wf["step"] = 3
+            st.rerun()
+        return
+
+    comments = result["comments_clean"]
+    topic = wf.get("topic", "")
+
+    st.markdown("### NotebookLM Analysis Setup")
+    st.markdown(
+        '<p style="font-size:0.88rem;color:#94A3B8">'
+        'Upload your comments to NotebookLM for free AI-powered analysis. '
+        'Follow the steps below.</p>',
+        unsafe_allow_html=True,
+    )
+
+    # --- Step 1: Download comment file ---
+    st.markdown("#### Step 1: Download Comment File")
+
+    from utils.notebooklm_export import export_comments_markdown, estimate_word_count, split_for_notebooklm
+
+    word_count = estimate_word_count(comments)
+    files = split_for_notebooklm(comments, topic)
+
+    if len(files) == 1:
+        st.download_button(
+            f"Download Comments ({len(comments):,} comments, ~{word_count:,} words)",
+            data=files[0],
+            file_name=f"comments_{topic.replace(' ', '_')}.md",
+            mime="text/markdown",
+            use_container_width=True,
+            type="primary",
+        )
+    else:
+        st.warning(f"Comments exceed NotebookLM's limit. Split into {len(files)} files.")
+        for i, file_content in enumerate(files, 1):
+            st.download_button(
+                f"Download Part {i}/{len(files)}",
+                data=file_content,
+                file_name=f"comments_{topic.replace(' ', '_')}_part{i}.md",
+                mime="text/markdown",
+                use_container_width=True,
+                key=f"nlm_download_{i}",
+            )
+
+    # --- Step 2: Instructions ---
+    st.markdown("#### Step 2: Create NotebookLM Notebook")
+    with st.expander("How to set up NotebookLM", expanded=False):
+        st.markdown("""
+1. Go to [notebooklm.google.com](https://notebooklm.google.com)
+2. Click **+ New** to create a new notebook
+3. Upload the downloaded comment file(s) as a source
+4. Click **Share** (top right) and set to **"Anyone with the link"**
+5. Copy the notebook URL and paste it below
+        """)
+
+    # --- Step 3: Notebook URL input ---
+    st.markdown("#### Step 3: Paste Notebook URL")
+
+    default_url = st.session_state.get("nlm_notebook_url", "")
+    notebook_url = st.text_input(
+        "NotebookLM Notebook URL",
+        value=default_url,
+        placeholder="https://notebooklm.google.com/notebook/...",
+        key="nlm_url_onesearch",
+        label_visibility="collapsed",
+    )
+    if notebook_url:
+        st.session_state["nlm_notebook_url"] = notebook_url
+
+    # Query budget info
+    try:
+        from ai.notebooklm_bridge import NotebookLMBridge
+        from ai.notebooklm_queries import get_query_count
+        n_queries = get_query_count(len(comments))
+        remaining = NotebookLMBridge.queries_remaining()
+        st.caption(
+            f"This analysis will use ~{n_queries} queries. "
+            f"You have {remaining} queries remaining today."
+        )
+        if n_queries > remaining:
+            st.warning(
+                f"Not enough queries remaining ({remaining} left, need {n_queries}). "
+                "Try again tomorrow or switch to Paid API in Settings."
+            )
+    except Exception:
+        pass
+
+    # --- Action buttons ---
+    col_back, col_skip, col_analyze = st.columns([1, 1, 2])
+
+    with col_back:
+        if st.button("Back", use_container_width=True, key="nlm_back"):
+            wf["step"] = 2
+            st.rerun()
+
+    with col_skip:
+        if st.button("Skip to Results", use_container_width=True, key="nlm_skip"):
+            wf["step"] = 5  # Results
+            st.rerun()
+
+    with col_analyze:
+        analyze_disabled = not notebook_url
+        if st.button(
+            "Analyze with NotebookLM",
+            type="primary",
+            use_container_width=True,
+            disabled=analyze_disabled,
+            key="nlm_analyze",
+        ):
+            if not notebook_url:
+                st.warning("Please paste a NotebookLM notebook URL first.")
+                return
+
+            _run_notebooklm_analysis(wf, result, notebook_url)
+
+
+def _run_notebooklm_analysis(wf: dict, result: dict, notebook_url: str):
+    """Execute NotebookLM queries and populate the customer_insight."""
+    from ai.notebooklm_bridge import get_bridge, NotebookLMBridge
+    from ai.notebooklm_queries import get_analysis_queries
+    from ai.notebooklm_parser import compose_customer_insight, insight_to_tag_summary
+
+    comments = result.get("comments_clean", [])
+    topic = wf.get("topic", "")
+    platforms = wf.get("platforms", [])
+
+    queries = get_analysis_queries(topic, len(comments), platforms)
+    bridge = get_bridge()
+
+    progress = st.progress(0.0, text="Connecting to NotebookLM...")
+    parsed_results = {}
+    session_id = None
+
+    for i, query in enumerate(queries):
+        qid = query["id"]
+        progress_pct = (i + 1) / len(queries)
+        progress.progress(
+            progress_pct,
+            text=f"Querying NotebookLM ({i+1}/{len(queries)}): {qid.replace('_', ' ').title()}...",
+        )
+
+        try:
+            answer, session_id = run_async(
+                bridge.ask_question(
+                    question=query["question"],
+                    notebook_url=notebook_url,
+                    session_id=session_id,
+                )
+            )
+            parsed_results[qid] = answer
+            NotebookLMBridge.increment_usage()
+        except Exception as e:
+            st.warning(f"Query '{qid}' failed: {e}")
+            parsed_results[qid] = ""
+
+    progress.progress(1.0, text="Analysis complete!")
+
+    # Compose the customer insight
+    if any(parsed_results.values()):
+        insight = compose_customer_insight(parsed_results)
+        result["customer_insight"] = insight
+
+        # Reconstruct tag_summary for heatmap
+        tag_summary = insight_to_tag_summary(insight)
+        if tag_summary:
+            # Merge with existing VADER-based tag_summary
+            existing = result.get("tag_summary", {})
+            existing["aspect_sentiment"] = tag_summary.get("aspect_sentiment", {})
+            result["tag_summary"] = existing
+
+        wf["result"] = result
+        st.success(f"NotebookLM analysis complete! Used {len(queries)} queries.")
+    else:
+        st.error("All queries failed. Check the notebook URL and try again.")
+        return
+
+    wf["step"] = 5  # Results
+    st.rerun()
+
+
 def _render_results():
     """Render the results step."""
     wf = _get_wf()
@@ -784,12 +1319,46 @@ def _render_results():
             "count": len(clean_comments),
         }
 
-        # Data table
-        if clean_comments:
-            df = pd.DataFrame(clean_comments)
-            display_cols = ["platform", "username", "text", "likes", "replies", "date"]
-            available_cols = [c for c in display_cols if c in df.columns]
-            st.dataframe(df[available_cols], use_container_width=True, height=400)
+        # --- AI Customer Insight Report (prominent, at top) ---
+        customer_insight = result.get("customer_insight")
+        if customer_insight:
+            _render_customer_insight(customer_insight, wf["topic"])
+            # Regenerate button
+            if _is_nlm_mode():
+                if st.button("Re-analyze with NotebookLM", key="regen_insight"):
+                    wf["step"] = 4  # Back to NLM Setup
+                    st.rerun()
+            elif st.button("Regenerate AI Report", key="regen_insight"):
+                with st.spinner("Regenerating AI Customer Insight Report..."):
+                    try:
+                        _regenerate_insight(wf, result)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Regeneration failed: {e}")
+        elif not customer_insight and clean_comments:
+            # Show a button to generate if it wasn't auto-generated
+            st.markdown("---")
+            if _is_nlm_mode():
+                # In NLM mode, offer to go back to NLM setup
+                if st.button("Generate Report via NotebookLM", type="primary", key="gen_insight_nlm"):
+                    wf["step"] = 4  # NLM Setup
+                    st.rerun()
+            elif st.button("Generate AI Customer Insight Report", type="primary", key="gen_insight"):
+                with st.spinner("Generating AI Customer Insight Report..."):
+                    try:
+                        _regenerate_insight(wf, result)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Generation failed: {e}")
+
+        # --- Cross-Platform Comparison (if 2+ platforms) ---
+        _render_cross_platform(result)
+
+        # --- Aspect-Based Sentiment Heatmap (if tags available) ---
+        _render_aspect_heatmap(result)
+
+        # --- Smart Comment Explorer ---
+        _render_comment_explorer(result, wf)
 
         # Download buttons
         st.markdown("")
@@ -814,7 +1383,7 @@ def _render_results():
         # Pipeline transparency
         _render_pipeline_details(result)
 
-        # Analysis dashboard
+        # Analysis dashboard (VADER + LDA — fallback / supplementary)
         analysis = result.get("analysis")
         if analysis:
             try:
@@ -822,11 +1391,6 @@ def _render_results():
                 render_analysis_dashboard(analysis)
             except ImportError:
                 pass
-
-        # AI Customer Insight Report
-        customer_insight = result.get("customer_insight")
-        if customer_insight:
-            _render_customer_insight(customer_insight, wf["topic"])
 
     else:
         st.info(
@@ -863,4 +1427,9 @@ elif current_step == 2:
 elif current_step == 3:
     _render_scraping()
 elif current_step == 4:
+    if _is_nlm_mode():
+        _render_notebooklm_setup()
+    else:
+        _render_results()
+elif current_step == 5:
     _render_results()

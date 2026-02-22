@@ -339,6 +339,8 @@ async def step_scrape_and_analyze(
         "scrape_log": [],
         "analysis": None,
         "customer_insight": None,
+        "comment_tags": None,
+        "tag_summary": None,
     }
 
     total_urls = sum(len(urls) for urls in url_map.values())
@@ -404,27 +406,152 @@ async def step_scrape_and_analyze(
             if progress_callback:
                 progress_callback(f"Analysis error: {e}")
 
-    # Generate AI Customer Insight Report
-    if len(all_clean) >= 5:
-        if progress_callback:
-            progress_callback("Generating AI Customer Insight Report...")
-        try:
-            from ai.client import LLMClient
-            from ai.prompts import format_comments_for_prompt, CUSTOMER_INSIGHT_REPORT
+    # Detect analysis provider
+    provider = _detect_analysis_provider()
 
-            platforms_str = ", ".join(platforms)
-            formatted = format_comments_for_prompt(all_clean[:500])  # cap for token limit
-            prompt = CUSTOMER_INSIGHT_REPORT.format(
-                comment_count=len(all_clean),
-                topic=topic,
-                platforms=platforms_str,
-                comments=formatted,
-            )
-            client = LLMClient()
-            insight = await client.analyze(prompt=prompt)
-            result["customer_insight"] = insight
-        except Exception as e:
+    if provider == "notebooklm":
+        # --- NotebookLM path: VADER sentiment + skip per-comment LLM tagging ---
+        if len(all_clean) >= 5:
             if progress_callback:
-                progress_callback(f"AI Insight error: {e}")
+                progress_callback("Applying sentiment analysis (VADER)...")
+            _apply_vader_tags(all_clean, result.get("analysis", {}))
+            result["comments_clean"] = all_clean
+            result["tag_summary"] = _vader_tag_summary(all_clean)
+            if progress_callback:
+                progress_callback("Sentiment tagging complete (VADER).")
+        # NotebookLM corpus-level insight is generated separately via the
+        # NLM setup step in the One Search UI (not here in the pipeline).
+        # The pipeline just prepares VADER tags for immediate use.
+
+    else:
+        # --- Paid API path: per-comment LLM tagging + insight report ---
+
+        # LLM Comment Tagging (if LLM available)
+        if len(all_clean) >= 5:
+            try:
+                from analysis.llm_tagger import tag_comments, merge_tags_into_comments, aggregate_tags
+
+                if progress_callback:
+                    progress_callback("Running AI comment tagging...")
+                tags = await tag_comments(all_clean, progress_callback=progress_callback)
+                all_clean = merge_tags_into_comments(all_clean, tags)
+                result["comments_clean"] = all_clean
+                result["comment_tags"] = tags
+                result["tag_summary"] = aggregate_tags(all_clean)
+                if progress_callback:
+                    progress_callback("AI tagging complete.")
+            except Exception as e:
+                if progress_callback:
+                    progress_callback(f"AI tagging skipped: {e}")
+
+        # Generate AI Customer Insight Report
+        if len(all_clean) >= 5:
+            if progress_callback:
+                progress_callback("Generating AI Customer Insight Report...")
+            try:
+                from ai.client import LLMClient
+                from ai.prompts import format_comments_for_prompt, CUSTOMER_INSIGHT_REPORT
+
+                platforms_str = ", ".join(platforms)
+                formatted = format_comments_for_prompt(all_clean[:500])  # cap for token limit
+
+                # Enrich prompt with tag summary if available
+                tag_context = ""
+                if result.get("tag_summary"):
+                    ts = result["tag_summary"]
+                    tag_context = (
+                        f"\n\nAI TAG SUMMARY (pre-classified data):\n"
+                        f"Sentiment: {ts.get('sentiment_distribution', {})}\n"
+                        f"Emotions: {ts.get('emotion_distribution', {})}\n"
+                        f"Intents: {ts.get('intent_distribution', {})}\n"
+                        f"Urgency: {ts.get('urgency_distribution', {})}\n"
+                        f"Aspect-Sentiment: {ts.get('aspect_sentiment', {})}\n"
+                        f"Use this pre-classified data to ground your analysis with precise numbers.\n"
+                    )
+
+                prompt = CUSTOMER_INSIGHT_REPORT.format(
+                    comment_count=len(all_clean),
+                    topic=topic,
+                    platforms=platforms_str,
+                    comments=formatted + tag_context,
+                )
+                client = LLMClient()
+                insight = await client.analyze(prompt=prompt)
+                result["customer_insight"] = insight
+            except Exception as e:
+                if progress_callback:
+                    progress_callback(f"AI Insight error: {e}")
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Provider detection
+# ---------------------------------------------------------------------------
+
+
+def _detect_analysis_provider() -> str | None:
+    """Check session state for the active analysis provider."""
+    try:
+        import streamlit as st
+        return st.session_state.get("active_provider")
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# VADER-based sentiment tagging (free, local)
+# ---------------------------------------------------------------------------
+
+
+def _apply_vader_tags(comments: list[dict], analysis: dict | None):
+    """Apply VADER-based ai_sentiment to each comment (free, local).
+
+    Maps VADER compound scores to ai_sentiment labels:
+      compound >= 0.05 -> "positive"
+      compound <= -0.05 -> "negative"
+      else -> "neutral"
+    """
+    try:
+        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+        sid = SentimentIntensityAnalyzer()
+    except ImportError:
+        # Fallback to nltk's VADER if available
+        try:
+            from nltk.sentiment.vader import SentimentIntensityAnalyzer
+            sid = SentimentIntensityAnalyzer()
+        except Exception:
+            # No VADER available — skip tagging
+            return
+
+    for c in comments:
+        text = c.get("text", "")
+        if not text:
+            c["ai_sentiment"] = "neutral"
+            continue
+        scores = sid.polarity_scores(text)
+        compound = scores["compound"]
+        if compound >= 0.05:
+            c["ai_sentiment"] = "positive"
+        elif compound <= -0.05:
+            c["ai_sentiment"] = "negative"
+        else:
+            c["ai_sentiment"] = "neutral"
+
+
+def _vader_tag_summary(comments: list[dict]) -> dict:
+    """Build a minimal tag_summary from VADER-tagged comments."""
+    from collections import Counter
+    sent_counts = Counter(c.get("ai_sentiment", "neutral") for c in comments)
+    total = len(comments) or 1
+    return {
+        "sentiment_distribution": {
+            "positive": round(sent_counts.get("positive", 0) / total * 100, 1),
+            "negative": round(sent_counts.get("negative", 0) / total * 100, 1),
+            "neutral": round(sent_counts.get("neutral", 0) / total * 100, 1),
+        },
+        "aspect_sentiment": {},
+        "emotion_distribution": {},
+        "intent_distribution": {},
+        "urgency_distribution": {},
+    }

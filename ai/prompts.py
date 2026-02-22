@@ -265,6 +265,30 @@ Prioritize insights that are surprising or non-obvious over expected findings.
 COMMENTS:
 {comments}"""
 
+COMMENT_TAGGER = """You are a multilingual social media analyst. Classify each comment below.
+
+For EACH comment (identified by its number), return a JSON object with these fields:
+- sentiment: "positive" | "negative" | "neutral" | "mixed"
+- emotion: "joy" | "anger" | "sadness" | "surprise" | "fear" | "trust" | "anticipation" | "disgust" | "neutral"
+- intent: "question" | "complaint" | "praise" | "suggestion" | "experience" | "comparison" | "purchase_intent" | "spam" | "other"
+- aspects: array of {{"aspect": "<topic>", "sentiment": "positive" | "negative" | "neutral"}}
+- urgency: "high" | "medium" | "low" | "none"
+
+Rules:
+- Analyze comments in their ORIGINAL language (Thai, English, mixed, etc.) — do NOT translate.
+- Aspects should be auto-discovered from the content (e.g., "price", "taste", "service", "quality", "packaging", "location", "ambiance"). Use short English labels for aspect names.
+- If a comment is too short or unclear, use "neutral" for sentiment/emotion, "other" for intent, empty aspects, "none" for urgency.
+- Return ONLY a valid JSON array. No explanation, no markdown fences.
+
+Return format — a JSON array where index matches comment number:
+[
+  {{"id": 1, "sentiment": "positive", "emotion": "joy", "intent": "experience", "aspects": [{{"aspect": "taste", "sentiment": "positive"}}], "urgency": "none"}},
+  {{"id": 2, "sentiment": "negative", "emotion": "anger", "intent": "complaint", "aspects": [{{"aspect": "service", "sentiment": "negative"}}, {{"aspect": "price", "sentiment": "negative"}}], "urgency": "medium"}}
+]
+
+COMMENTS:
+{comments}"""
+
 FULL_MARKET_RESEARCH = """You are a senior market research analyst producing a comprehensive report.
 
 Analyze the following {comment_count} social media comments about "{topic}" and produce a complete market research report.
@@ -343,6 +367,7 @@ _PROMPT_MAP = {
     "customer_personas": CUSTOMER_PERSONAS,
     "full_market_research": FULL_MARKET_RESEARCH,
     "customer_insight_report": CUSTOMER_INSIGHT_REPORT,
+    "comment_tagger": COMMENT_TAGGER,
 }
 
 

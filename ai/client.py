@@ -47,7 +47,7 @@ _ENV_VAR_MAP = {
     "gemini": "GOOGLE_API_KEY",
 }
 
-PROVIDERS = ("claude", "openai", "gemini")
+PROVIDERS = ("claude", "openai", "gemini", "notebooklm")
 
 PROVIDER_MODELS = {
     "claude": "claude-sonnet-4-20250514",
@@ -81,6 +81,14 @@ class LLMClient:
 
         if not self.provider:
             raise ValueError("No AI provider configured. Go to Settings to set one up.")
+
+        # NotebookLM doesn't need an API key or SDK
+        if self.provider == "notebooklm":
+            raise ValueError(
+                "NotebookLM uses corpus-level analysis, not per-prompt calls. "
+                "Use the NotebookLM bridge (ai.notebooklm_bridge) instead."
+            )
+
         if not self.api_key:
             raise ValueError(f"No API key found for {self.provider}. Add one in Settings.")
         if not SDK_AVAILABLE.get(self.provider):
@@ -154,6 +162,9 @@ class LLMClient:
             import streamlit as st
             provider = st.session_state.get("active_provider")
             if provider:
+                # NotebookLM doesn't need an API key
+                if provider == "notebooklm":
+                    return "notebooklm-no-key-needed"
                 keys = st.session_state.get("api_keys", {})
                 key = keys.get(provider)
                 if key:
