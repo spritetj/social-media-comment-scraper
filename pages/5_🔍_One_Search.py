@@ -9,6 +9,7 @@ Steps:
   4. Results — comments table, analysis dashboard, AI Customer Insight
 """
 
+import re
 import streamlit as st
 import pandas as pd
 from pathlib import Path
@@ -67,6 +68,51 @@ def _get_wf() -> dict:
 def _reset_wf():
     """Reset workflow to step 0."""
     st.session_state["os_wf"] = {"step": 0}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Query display helpers — hide Google operators from user
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _strip_operators(query: str) -> str:
+    """Strip Google dork operators from a query for user-friendly display.
+
+    Removes: site:..., after:..., before:..., intitle:, inurl:, -inurl:...
+    Keeps the actual search terms.
+    """
+    q = query
+    # Remove site:anything (including site:youtube.com/shorts)
+    q = re.sub(r'site:\S+', '', q)
+    # Remove after:YYYY-MM-DD and before:YYYY-MM-DD
+    q = re.sub(r'(?:after|before):\d{4}-\d{2}-\d{2}', '', q)
+    # Remove intitle: and -inurl: prefixes
+    q = re.sub(r'-?(?:intitle|inurl):', '', q)
+    # Collapse whitespace
+    q = re.sub(r'\s+', ' ', q).strip()
+    return q
+
+
+def _restore_operators(clean_query: str, platform: str, date_range: str) -> str:
+    """Re-add Google operators to a clean query for actual search execution."""
+    site_map = {
+        "youtube": "youtube.com",
+        "tiktok": "tiktok.com",
+        "facebook": "facebook.com",
+        "instagram": "instagram.com",
+    }
+    site = site_map.get(platform, "")
+    parts = [f"site:{site}", clean_query] if site else [clean_query]
+
+    # Add date filter
+    if date_range and date_range != "any":
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        days = {"week": 7, "month": 30, "year": 365}.get(date_range, 0)
+        if days:
+            after = (now - timedelta(days=days)).strftime("%Y-%m-%d")
+            parts.append(f"after:{after}")
+
+    return " ".join(parts)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -234,23 +280,31 @@ def _render_query_review():
                 st.markdown(f"- {h}")
 
     st.markdown("#### Edit Search Queries")
-    st.caption("One query per line. Add, remove, or edit freely.")
+    st.caption("One query per line. Add, remove, or edit freely. Platform targeting and date filters are applied automatically.")
 
-    # Per-platform text areas
-    edited_queries = {}
+    # Per-platform text areas — show clean queries (no site:/after: operators)
+    edited_clean_queries = {}
     tabs = st.tabs([p.title() for p in wf["platforms"]])
     for i, platform in enumerate(wf["platforms"]):
         with tabs[i]:
             current = wf["queries"].get(platform, [])
+            clean = [_strip_operators(q) for q in current]
+            # Deduplicate after stripping (operators may have been the only difference)
+            seen = set()
+            deduped = []
+            for q in clean:
+                if q and q not in seen:
+                    seen.add(q)
+                    deduped.append(q)
             text = st.text_area(
                 f"Queries for {platform.title()}",
-                value="\n".join(current),
+                value="\n".join(deduped),
                 height=200,
                 key=f"qa_{platform}",
                 label_visibility="collapsed",
             )
             lines = [line.strip() for line in text.split("\n") if line.strip()]
-            edited_queries[platform] = lines
+            edited_clean_queries[platform] = lines
             st.caption(f"{len(lines)} queries")
 
     # Action buttons
@@ -261,18 +315,44 @@ def _render_query_review():
             st.rerun()
     with col_approve:
         if st.button("Approve & Search Google", type="primary", use_container_width=True):
-            wf["queries"] = edited_queries
+            # Restore Google operators for actual search
+            full_queries = {}
+            for platform, clean_list in edited_clean_queries.items():
+                full_queries[platform] = [
+                    _restore_operators(q, platform, wf.get("date_range", "any"))
+                    for q in clean_list
+                ]
+            wf["queries"] = full_queries
 
-            # Run URL search
-            with st.spinner("Searching Google for URLs..."):
-                from search.pipeline import step_search_urls
-                url_result = step_search_urls(
-                    queries=edited_queries,
-                    platforms=wf["platforms"],
-                    max_urls_per_platform=wf["max_urls"],
-                    topic=wf["topic"],
-                    relevance_keywords=wf.get("relevance_keywords"),
+            # Run URL search with live progress
+            progress_placeholder = st.empty()
+            status_text = st.empty()
+
+            def _search_progress(msg: str):
+                """Update progress display during URL search."""
+                msg = str(msg).strip()
+                if not msg:
+                    return
+                status_text.markdown(
+                    f'<div style="font-size:0.82rem;color:#94A3B8;padding:2px 0">'
+                    f'{msg}</div>',
+                    unsafe_allow_html=True,
                 )
+
+            progress_placeholder.info("Searching Google for URLs across platforms...")
+
+            from search.pipeline import step_search_urls
+            url_result = step_search_urls(
+                queries=full_queries,
+                platforms=wf["platforms"],
+                max_urls_per_platform=wf["max_urls"],
+                topic=wf["topic"],
+                relevance_keywords=wf.get("relevance_keywords"),
+                progress_callback=_search_progress,
+            )
+
+            progress_placeholder.empty()
+            status_text.empty()
 
             wf["search_results"] = url_result["search_results"]
 
@@ -356,15 +436,31 @@ def _render_url_review():
     with col_more:
         if st.button("Search More URLs", use_container_width=True):
             # Re-run search and merge new URLs
-            with st.spinner("Searching for more URLs..."):
-                from search.pipeline import step_search_urls
-                url_result = step_search_urls(
-                    queries=wf["queries"],
-                    platforms=wf["platforms"],
-                    max_urls_per_platform=wf["max_urls"] * 2,  # wider search
-                    topic=wf["topic"],
-                    relevance_keywords=wf.get("relevance_keywords"),
-                )
+            progress_ph = st.empty()
+            status_ph = st.empty()
+
+            def _more_progress(msg: str):
+                msg = str(msg).strip()
+                if msg:
+                    status_ph.markdown(
+                        f'<div style="font-size:0.82rem;color:#94A3B8;padding:2px 0">'
+                        f'{msg}</div>',
+                        unsafe_allow_html=True,
+                    )
+
+            progress_ph.info("Searching for more URLs...")
+
+            from search.pipeline import step_search_urls
+            url_result = step_search_urls(
+                queries=wf["queries"],
+                platforms=wf["platforms"],
+                max_urls_per_platform=wf["max_urls"] * 2,  # wider search
+                topic=wf["topic"],
+                relevance_keywords=wf.get("relevance_keywords"),
+                progress_callback=_more_progress,
+            )
+            progress_ph.empty()
+            status_ph.empty()
 
             # Merge: keep existing selections, add new URLs as selected
             for platform, new_details in url_result["url_map_detail"].items():
