@@ -412,6 +412,10 @@ def search_multi_queries(
             if len(platform_results) >= target_urls_per_platform:
                 break
 
+            if progress_callback:
+                display_q = query[:120]
+                progress_callback(f"Query: {display_q}")
+
             results = search_google(
                 query,
                 max_results=max_results_per_query,
@@ -430,6 +434,10 @@ def search_multi_queries(
                 progress_callback(
                     f"{platform.title()}: +{new_count} new URLs (total: {len(platform_results)})"
                 )
+                for item in platform_results[-new_count:][:3]:
+                    title = item.get('title', '')[:80]
+                    if title:
+                        progress_callback(f"  → {title}")
 
             # Rate limiting between queries
             time.sleep(random.uniform(0.3, 0.8))

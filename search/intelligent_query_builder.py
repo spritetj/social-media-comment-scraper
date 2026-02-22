@@ -43,6 +43,8 @@ class SearchStrategy:
 class IntelligentQueryResult:
     queries: dict[str, list[str]] = field(default_factory=dict)
     relevance_keywords: list[str] = field(default_factory=list)
+    research_question: str = ""
+    hypotheses: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -249,6 +251,11 @@ async def build_intelligent_queries(
             )
             if progress_callback:
                 total = sum(len(v) for v in result.queries.values())
+                if result.research_question:
+                    progress_callback(f"Research: {result.research_question}")
+                if result.hypotheses:
+                    hyp_summary = "; ".join(h for h in result.hypotheses[:3])
+                    progress_callback(f"Hypotheses: {hyp_summary}")
                 progress_callback(
                     f"Generated {total} search queries across {len(result.queries)} platforms (LLM)"
                 )
@@ -333,36 +340,84 @@ def _has_llm_configured() -> bool:
 # LLM strategist — generates actual query strings per platform
 # ---------------------------------------------------------------------------
 
-_STRATEGIST_PROMPT = """You are a Thai social media research strategist. Given a user's research question (Thai, English, or mixed), you must:
+_STRATEGIST_PROMPT = """You are an expert Thai market researcher and social listening strategist.
 
-1. UNDERSTAND THE INTENT — What is the user really asking? Not just the brand, but the ANGLE:
-   - "คนตื่นเต้นอะไรกับ Sushipop" → intent is EXCITEMENT/HYPE, not just "Sushipop"
-   - "Yoguruto ดีไหม" → intent is REVIEW/OPINION
-   - "ทำไม XX ถึงดัง" → intent is TREND ANALYSIS
-   - "XX เป็นสินค้าที่น่ามาขายในไทยไหม" → intent is MARKET VIABILITY
+A user wants to research a topic across social media. Your job is to THINK like a researcher — understand what they really want to know, form hypotheses, and design a search strategy that discovers the most relevant content.
 
-2. GENERATE ANGLE-SPECIFIC QUERIES — Each query should reflect the intent angle:
-   - For excitement/hype: use ตื่นเต้น, ฮือฮา, กระแส, ไวรัล, ฮิต, ฟีเวอร์
-   - For reviews: use รีวิว, ดีไหม, คุ้มไหม, ข้อดีข้อเสีย, ประสบการณ์
-   - For problems: use ปัญหา, ข้อเสีย, ไม่ดี, ผิดหวัง, ระวัง
-   - For market viability: use ขาย, ตลาด, โอกาส, คู่แข่ง, กลุ่มเป้าหมาย
+## YOUR PROCESS
 
-3. THINK LIKE A THAI SOCIAL MEDIA USER — Thai users mix Thai and English freely:
-   - "Sushipop ฮิตมาก" (mixed Thai+English)
-   - "รีวิว Sushipop ลองกินจริง" (Thai frame + English brand)
-   - Use colloquial Thai, not formal
+### Step 1: UNDERSTAND THE REAL QUESTION
+Parse the user's input to identify:
+- **Subject**: The brand, product, person, or topic being researched
+- **Research question**: What do they actually want to learn?
+- **Implicit assumptions**: What does the user already believe or expect?
 
-ALL search goes through Google, so every query must use site: to target a specific platform.
+Example: "haab ทำแบรนด์ยังไงให้มีคนรู้จัก"
+→ Subject: haab (a brand)
+→ Research question: How did haab build brand awareness? What strategies made people know about them?
+→ Implicit assumption: haab has successfully built brand awareness, and there are learnable strategies behind it
+
+### Step 2: FORM RESEARCH HYPOTHESES
+What hypotheses could the data validate or challenge?
+
+Example hypotheses for "haab ทำแบรนด์ยังไงให้มีคนรู้จัก":
+- H1: haab used influencer marketing to build awareness
+- H2: haab's product/packaging went viral organically
+- H3: haab has a founder story that resonates with people
+- H4: haab used specific social media strategies (TikTok trends, YouTube reviews)
+- H5: haab's brand positioning (price, design, story) differentiates them from competitors
+
+### Step 3: IDENTIFY EVIDENCE TYPES NEEDED
+What kinds of content would contain the answers?
+
+| Evidence Type | What to search for |
+|---|---|
+| Brand story / founder interview | สัมภาษณ์, เรื่องราว, จุดเริ่มต้น, เจ้าของ, founder |
+| Marketing case study | กลยุทธ์, การตลาด, case study, แคมเปญ |
+| Consumer discovery moments | รู้จัก, เจอ, ลอง, ครั้งแรก, first time, discover |
+| Reviews & reactions | รีวิว, ลองใช้, unbox, honest review |
+| Viral/trending moments | ดัง, ไวรัล, กระแส, trending, ฮิต |
+| Competitive analysis | เทียบ, vs, เปรียบ, ต่างจาก, ดีกว่า |
+| Industry/category context | วงการ, ตลาด, อุตสาหกรรม, market |
+
+### Step 4: GENERATE SEARCH QUERIES
+Think like a REAL THAI PERSON searching Google. Thai search behavior:
+- Mix Thai + English freely: "haab รีวิว", "haab marketing strategy"
+- Use colloquial Thai, not formal: "haab ทำไมดัง" not "haab เหตุใดจึงประสบความสำเร็จ"
+- Search for content types: "haab สัมภาษณ์เจ้าของ", "haab case study"
+- Use question patterns: "haab คืออะไร", "haab ดียังไง"
+- Search for reactions: "haab ลองใช้จริง", "haab เจอครั้งแรก"
+
+Query generation rules:
+1. Every query MUST use site: to target a specific platform
+2. Use "quotes" around the brand name to ensure exact match
+3. For YouTube: also target site:youtube.com/shorts for short-form content
+4. For Instagram: also target site:instagram.com/reel/ for reels
+5. Generate {max_q} queries per platform
+6. DIVERSIFY queries across evidence types — don't repeat the same angle
+7. Include Thai transliterations of English brand names as separate queries
+8. For time-sensitive topics, use after:YYYY-MM-DD
+
+Platform-specific content strategies:
+- **YouTube**: Interviews, reviews, case studies, vlogs, shorts — longer analysis content
+- **TikTok**: Viral moments, quick reactions, unboxing, trends, creator content
+- **Facebook**: Discussion threads, community posts, news articles, group discussions
+- **Instagram**: Visual branding, influencer posts, reels, product showcases
+
+## OUTPUT FORMAT
 
 Return ONLY a JSON object:
 {{
-  "brand_entity": "main brand/product/topic name",
-  "brand_variants": ["variant1", "variant2"],
-  "thai_transliterations": ["Thai-script transliterations of English brand name"],
-  "intent": "one of: trend_analysis, review, problem, purchase, how_to, opinion, excitement, market_viability, general",
-  "intent_keywords_th": ["Thai keywords that capture the user's angle/intent"],
-  "intent_keywords_en": ["English keywords for the same angle"],
-  "research_objective": "one-sentence summary of what the user really wants to find",
+  "subject": "the main brand/product/topic",
+  "subject_variants": ["spelling variants", "abbreviations", "nicknames"],
+  "thai_transliterations": ["Thai-script versions of English names"],
+  "research_question": "one-sentence restatement of what the user wants to know",
+  "hypotheses": [
+    "H1: ...",
+    "H2: ...",
+    "H3: ..."
+  ],
+  "evidence_types": ["brand_story", "reviews", "viral_moments", "case_study", ...],
   "date_filter": "after:YYYY-MM-DD if time-sensitive, otherwise empty string",
   "platform_queries": {{
     "youtube": ["query1", "query2", ...],
@@ -371,19 +426,6 @@ Return ONLY a JSON object:
     "instagram": ["query1", "query2", ...]
   }}
 }}
-
-Rules for generating queries:
-1. Every query MUST include site: targeting exactly one platform
-2. Generate 3 types per platform:
-   - DORK: site:platform.com "brand" intent_keyword — exact brand + angle
-   - NATURAL: site:platform.com brand Thai-colloquial-phrase — how people actually search
-   - BROAD: "brand" OR "thai_variant" site:platform.com angle — wider net
-3. Include Thai transliterations as query variants
-4. Use "quotes" around brand names, after: for time-sensitive queries, OR for variants
-5. For YouTube, also include site:youtube.com/shorts queries
-6. For Instagram, also include site:instagram.com/reel/ queries
-7. Generate {max_q} queries per platform
-8. CRITICAL: Queries must reflect the USER'S ANGLE, not generic searches. If the user asks about excitement, every query should seek excitement-related content.
 
 Platforms to generate for: {platforms}"""
 
@@ -428,10 +470,15 @@ async def _strategize_with_llm(
             queries[platform] = pq[:max_queries_per_platform]
 
     # Build relevance keywords: brand + variants + Thai transliterations
-    brand = data.get("brand_entity", user_input)
-    brand_variants = data.get("brand_variants", [])
+    # Support both old ("brand_entity") and new ("subject") field names
+    brand = data.get("subject") or data.get("brand_entity", user_input)
+    brand_variants = data.get("subject_variants") or data.get("brand_variants", [])
     thai_trans = data.get("thai_transliterations", [])
     relevance_keywords = _build_relevance_keywords(brand, brand_variants, thai_trans)
+
+    # Extract researcher context (hypotheses, research question)
+    research_question = data.get("research_question", "")
+    hypotheses = data.get("hypotheses", [])
 
     # Apply date filter from date_range param if LLM didn't include one
     date_filter = data.get("date_filter", "")
@@ -444,7 +491,12 @@ async def _strategize_with_llm(
                 for q in queries[platform]
             ]
 
-    return IntelligentQueryResult(queries=queries, relevance_keywords=relevance_keywords)
+    return IntelligentQueryResult(
+        queries=queries,
+        relevance_keywords=relevance_keywords,
+        research_question=research_question,
+        hypotheses=hypotheses,
+    )
 
 
 # ---------------------------------------------------------------------------

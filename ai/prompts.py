@@ -19,6 +19,7 @@ ANALYSIS_TYPES = {
     "purchase_intent": "Detect buying signals, satisfaction levels, and purchase intent",
     "customer_personas": "Identify distinct customer segments and user personas",
     "full_market_research": "Comprehensive market research report combining all analyses",
+    "customer_insight_report": "Customer insight report with audience profile, themes, and recommendations",
 }
 
 
@@ -195,6 +196,75 @@ Percentages should sum to approximately 100.
 COMMENTS:
 {comments}"""
 
+CUSTOMER_INSIGHT_REPORT = """You are a senior customer insight strategist who transforms raw social media conversations into actionable business intelligence.
+
+Given {comment_count} social media comments about "{topic}" collected from {platforms}, produce a Customer Insight Report that a brand manager or marketing director can act on immediately.
+
+Analyze the comments holistically — look for patterns, contradictions, emerging narratives, and unspoken assumptions.
+
+Return ONLY valid JSON matching this exact schema:
+{{
+  "executive_summary": "3-5 sentence overview of the most important findings and their business implications",
+  "key_findings": [
+    {{
+      "finding": "Clear statement of the finding",
+      "evidence": "Supporting data or quote from comments",
+      "business_impact": "Why this matters for the business"
+    }}
+  ],
+  "audience_profile": {{
+    "primary_demographics": "Who is talking about this topic (inferred from language, concerns, context)",
+    "psychographics": "Values, attitudes, and lifestyle indicators",
+    "knowledge_level": "How informed/experienced the audience is with this topic",
+    "engagement_style": "How they interact (asking questions, sharing experiences, debating, etc.)"
+  }},
+  "sentiment_overview": {{
+    "overall": "positive" | "negative" | "neutral" | "mixed",
+    "positive_percentage": <number>,
+    "negative_percentage": <number>,
+    "neutral_percentage": <number>,
+    "sentiment_drivers": ["What drives positive sentiment", "What drives negative sentiment"],
+    "emotional_themes": ["dominant emotions expressed (excitement, frustration, curiosity, etc.)"]
+  }},
+  "content_themes": [
+    {{
+      "theme": "Theme name",
+      "frequency": <number of comments>,
+      "description": "What people are saying about this theme",
+      "notable_quotes": ["quote1", "quote2"]
+    }}
+  ],
+  "actionable_recommendations": [
+    {{
+      "priority": "high" | "medium" | "low",
+      "recommendation": "Specific, actionable recommendation",
+      "rationale": "Why this recommendation based on the data",
+      "expected_outcome": "What implementing this should achieve"
+    }}
+  ],
+  "opportunities": [
+    {{
+      "opportunity": "Description of the opportunity",
+      "evidence": "What in the data suggests this opportunity",
+      "suggested_action": "How to capitalize on it"
+    }}
+  ],
+  "risks": [
+    {{
+      "risk": "Description of the risk or threat",
+      "severity": "high" | "medium" | "low",
+      "evidence": "What in the data indicates this risk",
+      "mitigation": "Suggested way to address it"
+    }}
+  ]
+}}
+
+Ground every finding in actual comment data. Be specific and actionable, not generic.
+Prioritize insights that are surprising or non-obvious over expected findings.
+
+COMMENTS:
+{comments}"""
+
 FULL_MARKET_RESEARCH = """You are a senior market research analyst producing a comprehensive report.
 
 Analyze the following {comment_count} social media comments about "{topic}" and produce a complete market research report.
@@ -272,6 +342,7 @@ _PROMPT_MAP = {
     "purchase_intent": PURCHASE_INTENT,
     "customer_personas": CUSTOMER_PERSONAS,
     "full_market_research": FULL_MARKET_RESEARCH,
+    "customer_insight_report": CUSTOMER_INSIGHT_REPORT,
 }
 
 
