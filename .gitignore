@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .env
+.DS_Store
+SERP/
+PLAN_social_listening_platform.md

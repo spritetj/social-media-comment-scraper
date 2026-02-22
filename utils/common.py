@@ -140,10 +140,14 @@ def load_cookies_as_list(file_content: str, domain_filter: str) -> list[dict]:
     return cookies
 
 
-def export_csv_bytes(comments: list[dict]) -> bytes:
-    """Export comments list to CSV bytes (for Streamlit download button)."""
+def export_csv_bytes(comments: list[dict], clean_mode: bool = False, platform: str = "") -> bytes:
+    """Export comments list to CSV bytes (for Streamlit download button).
+    If clean_mode=True, normalizes to clean schema first."""
     if not comments:
         return b""
+    if clean_mode and platform:
+        from utils.schema import to_clean
+        comments = to_clean(comments, platform)
     output = io.StringIO()
     fieldnames = list(comments[0].keys())
     writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
@@ -156,8 +160,12 @@ def export_csv_bytes(comments: list[dict]) -> bytes:
     return output.getvalue().encode("utf-8")
 
 
-def export_json_bytes(comments: list[dict]) -> bytes:
-    """Export comments list to JSON bytes (for Streamlit download button)."""
+def export_json_bytes(comments: list[dict], clean_mode: bool = False, platform: str = "") -> bytes:
+    """Export comments list to JSON bytes (for Streamlit download button).
+    If clean_mode=True, normalizes to clean schema first."""
     if not comments:
         return b"[]"
+    if clean_mode and platform:
+        from utils.schema import to_clean
+        comments = to_clean(comments, platform)
     return json.dumps(comments, indent=2, ensure_ascii=False, default=str).encode("utf-8")
