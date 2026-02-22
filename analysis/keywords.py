@@ -2,6 +2,7 @@
 Keyword extraction using TF-IDF, frequency analysis, n-grams, and word cloud.
 """
 
+import os
 import re
 from collections import Counter
 from io import BytesIO
@@ -15,8 +16,9 @@ except ImportError:
     HAS_WORDCLOUD = False
 
 
-# Common stopwords for social media
+# Common stopwords for social media (English + Thai)
 _STOP_WORDS = {
+    # English
     "the", "a", "an", "is", "it", "to", "in", "for", "of", "and", "or",
     "but", "not", "this", "that", "with", "on", "at", "from", "by", "as",
     "are", "was", "were", "be", "been", "being", "have", "has", "had",
@@ -31,7 +33,83 @@ _STOP_WORDS = {
     "like", "get", "got", "one", "think", "know", "go", "going",
     "really", "much", "well", "even", "still", "thing", "way",
     "lol", "lmao", "omg", "gonna", "wanna", "gotta", "yeah",
+    # Thai common stopwords
+    "ที่", "ของ", "และ", "ใน", "มี", "ไม่", "ได้", "เป็น", "จะ", "ว่า",
+    "กับ", "ก็", "ให้", "แล้ว", "ไป", "มา", "คือ", "นี้", "จาก", "แต่",
+    "อยู่", "ถ้า", "กัน", "นะ", "ค่ะ", "ครับ", "นั้น", "หรือ", "แค่",
+    "เลย", "ด้วย", "ยัง", "ทำ", "อะไร", "อัน", "ตอน", "ทุก", "เรา",
+    "คน", "จริง", "ๆ", "แบบ", "แล้ว", "มัน", "ขอ", "เอา", "อยาก",
+    "ต้อง", "เมื่อ", "หา", "ยัง", "สิ", "นะคะ", "ค่า", "จ้า",
 }
+
+
+# ---------------------------------------------------------------------------
+# Thai font discovery for WordCloud
+# ---------------------------------------------------------------------------
+
+_THAI_FONT_PATH = None
+
+
+def _find_thai_font() -> str | None:
+    """Find a Thai-compatible font for WordCloud rendering."""
+    global _THAI_FONT_PATH
+    if _THAI_FONT_PATH is not None:
+        return _THAI_FONT_PATH if _THAI_FONT_PATH else None
+
+    candidates = []
+
+    # 1. Try pythainlp bundled font
+    try:
+        from pythainlp import thai_font
+        p = thai_font()
+        if p and os.path.isfile(p):
+            _THAI_FONT_PATH = p
+            return _THAI_FONT_PATH
+    except Exception:
+        pass
+
+    # 2. Common system font paths (Linux / Streamlit Cloud)
+    linux_fonts = [
+        "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/truetype/tlwg/TlwgTypo.ttf",
+        "/usr/share/fonts/truetype/tlwg/Sawasdee.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    candidates.extend(linux_fonts)
+
+    # 3. macOS system fonts
+    mac_fonts = [
+        "/System/Library/Fonts/Thonburi.ttc",
+        "/System/Library/Fonts/Supplemental/Ayuthaya.ttf",
+        "/System/Library/Fonts/Supplemental/Krungthep.ttf",
+        "/Library/Fonts/NotoSansThai-Regular.ttf",
+    ]
+    candidates.extend(mac_fonts)
+
+    for path in candidates:
+        if os.path.isfile(path):
+            _THAI_FONT_PATH = path
+            return _THAI_FONT_PATH
+
+    _THAI_FONT_PATH = ""  # cache negative result
+    return None
+
+
+def _has_thai(text: str) -> bool:
+    """Check if text contains Thai characters."""
+    return bool(re.search(r'[\u0E00-\u0E7F]', text))
+
+
+def _tokenize_thai(text: str) -> str:
+    """Segment Thai text into space-separated tokens using pythainlp."""
+    try:
+        from pythainlp.tokenize import word_tokenize
+        tokens = word_tokenize(text, engine="newmm")
+        return " ".join(t.strip() for t in tokens if t.strip())
+    except ImportError:
+        return text
 
 
 def _clean_text(text: str) -> str:
@@ -40,8 +118,11 @@ def _clean_text(text: str) -> str:
     text = re.sub(r'https?://\S+', '', text)  # Remove URLs
     text = re.sub(r'@\w+', '', text)  # Remove mentions
     text = re.sub(r'#(\w+)', r'\1', text)  # Keep hashtag text
-    text = re.sub(r'[^\w\s]', ' ', text)  # Remove punctuation
+    text = re.sub(r'[^\w\s\u0E00-\u0E7F]', ' ', text)  # Remove punctuation (keep Thai)
     text = re.sub(r'\s+', ' ', text).strip()
+    # Tokenize Thai text so vectorizers can work with it
+    if _has_thai(text):
+        text = _tokenize_thai(text)
     return text
 
 
@@ -74,7 +155,7 @@ def analyze_keywords(comments: list[dict], top_n: int = 30) -> dict:
             stop_words=list(_STOP_WORDS),
             min_df=2,
             max_df=0.8,
-            token_pattern=r'\b[a-zA-Z]{2,}\b',
+            token_pattern=r'\S{2,}',
         )
         tfidf_matrix = tfidf.fit_transform(texts)
         feature_names = tfidf.get_feature_names_out()
@@ -105,7 +186,7 @@ def analyze_keywords(comments: list[dict], top_n: int = 30) -> dict:
     if HAS_WORDCLOUD and freq_keywords:
         try:
             freq_dict = dict(freq_keywords[:100])
-            wc = WordCloud(
+            wc_kwargs = dict(
                 width=800,
                 height=400,
                 background_color="#0B0F1A",
@@ -113,6 +194,10 @@ def analyze_keywords(comments: list[dict], top_n: int = 30) -> dict:
                 max_words=80,
                 prefer_horizontal=0.7,
             )
+            thai_font = _find_thai_font()
+            if thai_font:
+                wc_kwargs["font_path"] = thai_font
+            wc = WordCloud(**wc_kwargs)
             wc.generate_from_frequencies(freq_dict)
             buf = BytesIO()
             wc.to_image().save(buf, format="PNG")
@@ -137,7 +222,7 @@ def _extract_ngrams(texts: list[str], n: int, top_n: int = 15) -> list[tuple]:
             stop_words=list(_STOP_WORDS),
             min_df=2,
             max_df=0.8,
-            token_pattern=r'\b[a-zA-Z]{2,}\b',
+            token_pattern=r'\S{2,}',
         )
         matrix = vec.fit_transform(texts)
         feature_names = vec.get_feature_names_out()

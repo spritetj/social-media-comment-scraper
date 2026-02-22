@@ -7,24 +7,8 @@ import re
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.feature_extraction.text import CountVectorizer
 
-
-# Reuse stopwords from keywords module
-_STOP_WORDS = {
-    "the", "a", "an", "is", "it", "to", "in", "for", "of", "and", "or",
-    "but", "not", "this", "that", "with", "on", "at", "from", "by", "as",
-    "are", "was", "were", "be", "been", "being", "have", "has", "had",
-    "do", "does", "did", "will", "would", "could", "should", "may", "might",
-    "i", "me", "my", "we", "our", "you", "your", "he", "she", "they",
-    "them", "his", "her", "its", "their", "what", "which", "who", "whom",
-    "so", "if", "then", "than", "too", "very", "can", "just", "don",
-    "now", "also", "about", "up", "out", "no", "yes", "all", "more",
-    "some", "any", "each", "how", "when", "where", "why", "here", "there",
-    "im", "ive", "dont", "cant", "wont", "thats", "its", "hes", "shes",
-    "theyre", "youre", "were", "didnt", "doesnt", "isnt", "wasnt",
-    "like", "get", "got", "one", "think", "know", "go", "going",
-    "really", "much", "well", "even", "still", "thing", "way",
-    "lol", "lmao", "omg", "gonna", "wanna", "gotta", "yeah",
-}
+# Import shared stopwords and text helpers from keywords module
+from analysis.keywords import _STOP_WORDS, _has_thai, _tokenize_thai
 
 
 def _clean_text(text: str) -> str:
@@ -32,8 +16,10 @@ def _clean_text(text: str) -> str:
     text = re.sub(r'https?://\S+', '', text)
     text = re.sub(r'@\w+', '', text)
     text = re.sub(r'#(\w+)', r'\1', text)
-    text = re.sub(r'[^\w\s]', ' ', text)
+    text = re.sub(r'[^\w\s\u0E00-\u0E7F]', ' ', text)  # Keep Thai chars
     text = re.sub(r'\s+', ' ', text).strip()
+    if _has_thai(text):
+        text = _tokenize_thai(text)
     return text
 
 
@@ -72,7 +58,7 @@ def analyze_topics(comments: list[dict], n_topics: int = 5, n_words: int = 8) ->
             min_df=3,
             max_df=0.85,
             max_features=1000,
-            token_pattern=r'\b[a-zA-Z]{2,}\b',
+            token_pattern=r'\S{2,}',
         )
         doc_term_matrix = vectorizer.fit_transform(texts)
         feature_names = vectorizer.get_feature_names_out()

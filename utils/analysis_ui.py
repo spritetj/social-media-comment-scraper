@@ -54,18 +54,18 @@ def _render_sentiment(data: dict):
     """Render sentiment analysis results."""
     st.markdown("### Sentiment")
 
-    dist = data["distribution"]
+    dist = data.get("distribution", {})
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Positive", f"{dist['positive']}%")
-    m2.metric("Neutral", f"{dist['neutral']}%")
-    m3.metric("Negative", f"{dist['negative']}%")
-    m4.metric("Avg Score", f"{data['avg_compound']:.2f}")
+    m1.metric("Positive", f"{dist.get('positive', 0)}%")
+    m2.metric("Neutral", f"{dist.get('neutral', 0)}%")
+    m3.metric("Negative", f"{dist.get('negative', 0)}%")
+    m4.metric("Avg Score", f"{data.get('avg_compound', 0):.2f}")
 
     # Bar chart
     import pandas as pd
     chart_data = pd.DataFrame({
         "Sentiment": ["Positive", "Neutral", "Negative"],
-        "Percentage": [dist["positive"], dist["neutral"], dist["negative"]],
+        "Percentage": [dist.get("positive", 0), dist.get("neutral", 0), dist.get("negative", 0)],
     })
     st.bar_chart(chart_data.set_index("Sentiment"), height=200)
 
@@ -74,13 +74,13 @@ def _render_sentiment(data: dict):
     with col1:
         with st.expander("Top Positive Comments"):
             for c in data.get("top_positive", [])[:5]:
-                st.markdown(f"> {c['text'][:200]}")
-                st.caption(f"Score: {c['compound']:.2f} | Likes: {c.get('likes', 0)}")
+                st.markdown(f"> {c.get('text', '')[:200]}")
+                st.caption(f"Score: {c.get('compound', 0):.2f} | Likes: {c.get('likes', 0)}")
     with col2:
         with st.expander("Top Negative Comments"):
             for c in data.get("top_negative", [])[:5]:
-                st.markdown(f"> {c['text'][:200]}")
-                st.caption(f"Score: {c['compound']:.2f} | Likes: {c.get('likes', 0)}")
+                st.markdown(f"> {c.get('text', '')[:200]}")
+                st.caption(f"Score: {c.get('compound', 0):.2f} | Likes: {c.get('likes', 0)}")
 
 
 def _render_keywords(data: dict):
@@ -132,13 +132,15 @@ def _render_topics(data: dict):
         return
 
     for topic in data.get("topics", []):
-        with st.expander(f"Topic {topic['id']}: {', '.join(topic['keywords'][:4])}"):
+        keywords = topic.get("keywords", [])
+        label = f"Topic {topic.get('id', '?')}: {', '.join(keywords[:4])}" if keywords else f"Topic {topic.get('id', '?')}"
+        with st.expander(label):
             # Keyword tags
             tags_html = " ".join(
                 f'<span style="display:inline-block;background:rgba(59,130,246,0.15);'
                 f'border:1px solid rgba(59,130,246,0.25);border-radius:4px;'
                 f'padding:2px 8px;margin:2px;font-size:0.8rem;color:#60A5FA;">{kw}</span>'
-                for kw in topic["keywords"]
+                for kw in keywords
             )
             st.markdown(tags_html, unsafe_allow_html=True)
 
@@ -155,17 +157,17 @@ def _render_engagement(data: dict):
     st.markdown("### Engagement")
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Total Comments", f"{data['total_comments']:,}")
-    m2.metric("Reply Rate", f"{data['reply_rate']}%")
-    m3.metric("Avg Likes", f"{data['avg_likes']}")
-    m4.metric("Engagement Score", f"{data['engagement_score']}")
+    m1.metric("Total Comments", f"{data.get('total_comments', 0):,}")
+    m2.metric("Reply Rate", f"{data.get('reply_rate', 0)}%")
+    m3.metric("Avg Likes", f"{data.get('avg_likes', 0)}")
+    m4.metric("Engagement Score", f"{data.get('engagement_score', 0)}")
 
     col1, col2 = st.columns(2)
     with col1:
         with st.expander("Top Liked Comments"):
             for c in data.get("top_liked", [])[:5]:
-                st.markdown(f"> {c['text'][:200]}")
-                st.caption(f"@{c['username']} | {c['likes']} likes")
+                st.markdown(f"> {c.get('text', '')[:200]}")
+                st.caption(f"@{c.get('username', '?')} | {c.get('likes', 0)} likes")
 
     with col2:
         with st.expander("Most Active Users"):
@@ -184,8 +186,8 @@ def _render_temporal(data: dict):
     import pandas as pd
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("Peak Hour", f"{data['peak_hour']}:00")
-    m2.metric("Peak Day", data["peak_day"])
+    m1.metric("Peak Hour", f"{data.get('peak_hour', '?')}:00")
+    m2.metric("Peak Day", data.get("peak_day", "?"))
     date_range = data.get("date_range", {})
     m3.metric("Date Range", f"{date_range.get('earliest', '?')} to {date_range.get('latest', '?')}")
 
