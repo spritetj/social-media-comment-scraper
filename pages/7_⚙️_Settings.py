@@ -5,6 +5,9 @@ Configure API keys for Claude, ChatGPT, and Gemini.
 Keys are stored only in session state, never written to disk.
 """
 
+import json
+import os
+
 import streamlit as st
 from pathlib import Path
 
@@ -76,7 +79,60 @@ if engine_choice == "notebooklm":
         unsafe_allow_html=True,
     )
 
-    # NotebookLM status section
+    # NotebookLM auth & status section
+    from ai.notebooklm_bridge import get_bridge, reset_bridge, _parse_cookies_txt
+    from utils.async_runner import run_async
+
+    # --- Auth status indicator ---
+    has_session_cookies = bool(st.session_state.get("nlm_auth_json"))
+    has_env_cookies = bool(os.environ.get("NOTEBOOKLM_AUTH_JSON"))
+
+    if has_session_cookies:
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:8px;margin:0.5rem 0">'
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#34D399"></span>'
+            '<span style="font-size:0.88rem;color:#34D399;font-weight:600">Connected</span>'
+            '<span style="font-size:0.82rem;color:#64748B">— cookies uploaded this session</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    elif has_env_cookies:
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:8px;margin:0.5rem 0">'
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#34D399"></span>'
+            '<span style="font-size:0.88rem;color:#34D399;font-weight:600">Connected</span>'
+            '<span style="font-size:0.82rem;color:#64748B">— using env/secrets</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:8px;margin:0.5rem 0">'
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F87171"></span>'
+            '<span style="font-size:0.88rem;color:#F87171;font-weight:600">Not configured</span>'
+            '<span style="font-size:0.82rem;color:#64748B">— upload cookies.txt below</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    # --- Cookie upload ---
+    uploaded_file = st.file_uploader(
+        "Upload cookies.txt",
+        type=["txt"],
+        help="Export cookies from a browser extension (e.g. 'Get cookies.txt LOCALLY') and upload the file here.",
+        key="nlm_cookie_upload",
+    )
+    if uploaded_file is not None:
+        try:
+            raw_text = uploaded_file.read().decode("utf-8")
+            auth_json = _parse_cookies_txt(raw_text)
+            st.session_state["nlm_auth_json"] = auth_json
+            reset_bridge()
+            st.success(f"Cookies loaded — {len(json.loads(auth_json)['cookies'])} cookies imported.")
+        except Exception as e:
+            st.error(f"Failed to parse cookies.txt: {e}")
+
+    # --- Status row: query usage + auth check ---
     col_status, col_auth = st.columns([2, 1])
     with col_status:
         # Query usage counter
@@ -104,10 +160,6 @@ if engine_choice == "notebooklm":
             st.caption("Query tracking will start after first analysis.")
 
     with col_auth:
-        # Auth status check
-        from ai.notebooklm_bridge import get_bridge
-        from utils.async_runner import run_async
-
         if st.button("Check Auth Status", use_container_width=True, key="nlm_auth_check"):
             with st.spinner("Checking cookies..."):
                 try:
@@ -116,31 +168,22 @@ if engine_choice == "notebooklm":
                     if is_valid:
                         st.success("Connected — cookies are valid.")
                     else:
-                        st.error("Cookies expired. Re-run `notebooklm login` locally and update secrets.")
+                        st.error("Cookies expired. Upload fresh cookies.txt.")
                 except Exception as e:
                     st.error(f"Auth check failed: {e}")
 
     # Cookie setup instructions
-    with st.expander("Cookie Setup (one-time)", expanded=False):
+    with st.expander("How to get cookies.txt", expanded=False):
         st.markdown(
-            "NotebookLM analysis is fully automated — the app creates notebooks, "
-            "uploads comments, queries, and cleans up automatically. "
-            "You just need to provide authentication cookies.\n\n"
-            "**One-time setup** (repeat every ~1-2 weeks when cookies expire):\n\n"
-            "```bash\n"
-            "# On your local machine:\n"
-            "pip install \"notebooklm-py[browser]\"\n"
-            "playwright install chromium\n"
-            "notebooklm login          # Opens browser - sign in with Google\n"
-            "cat ~/.notebooklm/storage_state.json  # Copy this JSON\n"
-            "```\n\n"
-            "Then paste into **Streamlit Cloud > Settings > Secrets**:\n"
-            "```toml\n"
-            "NOTEBOOKLM_AUTH_JSON = '{\"cookies\": [...], \"origins\": []}'\n"
-            "```\n\n"
-            "For local development, set the `NOTEBOOKLM_AUTH_JSON` environment variable "
-            "or simply run `notebooklm login` and the default path will be used.\n\n"
-            "[notebooklm-py docs](https://github.com/teng-lin/notebooklm-py)"
+            "**Step 1:** Install a cookie export extension in your browser:\n"
+            "- Chrome: [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)\n"
+            "- Firefox: [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/)\n\n"
+            "**Step 2:** Go to [notebooklm.google.com](https://notebooklm.google.com) and sign in\n\n"
+            "**Step 3:** Click the extension icon and export cookies for the current site\n\n"
+            "**Step 4:** Upload the downloaded `cookies.txt` file above\n\n"
+            "Cookies typically last 1-2 weeks. Re-upload when they expire.\n\n"
+            "*Alternative:* Set `NOTEBOOKLM_AUTH_JSON` env var or Streamlit Cloud secrets "
+            "with Playwright storage_state.json format."
         )
 
     st.markdown("---")

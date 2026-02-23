@@ -5,9 +5,11 @@ Pure Python client for NotebookLM using the notebooklm-py library.
 No Node.js or browser required at runtime — uses HTTP calls to
 NotebookLM's internal RPC endpoints.
 
-Auth: User runs `notebooklm login` locally once, then copies the
-storage_state.json content into the NOTEBOOKLM_AUTH_JSON env var
-(or Streamlit Cloud secrets).
+Auth priority:
+    1. Session state (user uploaded cookies.txt in Settings)
+    2. NOTEBOOKLM_AUTH_JSON env var
+    3. Streamlit Cloud secrets
+    4. Default local path (~/.notebooklm/storage_state.json)
 
 Usage:
     bridge = get_bridge()
@@ -16,6 +18,7 @@ Usage:
 """
 
 import asyncio
+import json
 import logging
 import os
 import time
@@ -28,12 +31,50 @@ NLM_DAILY_LIMIT = 50
 NLM_WARN_THRESHOLD = 40
 
 
+def _parse_cookies_txt(text: str) -> str:
+    """Convert Netscape cookies.txt to Playwright storage_state.json format.
+
+    Args:
+        text: Contents of a Netscape-format cookies.txt file.
+
+    Returns:
+        JSON string in Playwright storage_state format.
+    """
+    cookies = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) < 7:
+            continue
+        domain, _host_only, path, secure, expiry, name, value = parts[:7]
+        cookies.append({
+            "name": name,
+            "value": value,
+            "domain": domain,
+            "path": path,
+            "expires": int(expiry) if expiry.isdigit() else -1,
+            "secure": secure.upper() == "TRUE",
+            "httpOnly": False,
+            "sameSite": "None",
+        })
+    if not cookies:
+        raise ValueError("No valid cookies found in cookies.txt")
+    return json.dumps({"cookies": cookies, "origins": []})
+
+
 def _inject_auth_from_secrets():
-    """Inject NOTEBOOKLM_AUTH_JSON from Streamlit secrets if not in env."""
+    """Inject NOTEBOOKLM_AUTH_JSON from session state, env, or secrets."""
     if "NOTEBOOKLM_AUTH_JSON" not in os.environ:
         try:
             import streamlit as st
-            val = st.secrets.get("NOTEBOOKLM_AUTH_JSON", "")
+            # Priority 1: user-uploaded cookies in session state
+            val = st.session_state.get("nlm_auth_json", "")
+            # Priority 2: already in env (checked above)
+            # Priority 3: Streamlit Cloud secrets
+            if not val:
+                val = st.secrets.get("NOTEBOOKLM_AUTH_JSON", "")
             if val:
                 os.environ["NOTEBOOKLM_AUTH_JSON"] = val
         except Exception:
@@ -264,3 +305,17 @@ def get_bridge() -> NotebookLMBridge:
     if _bridge is None:
         _bridge = NotebookLMBridge()
     return _bridge
+
+
+def reset_bridge():
+    """Clear the singleton so new cookies take effect on next call."""
+    global _bridge
+    if _bridge is not None:
+        try:
+            import asyncio
+            asyncio.get_event_loop().run_until_complete(_bridge.stop())
+        except Exception:
+            pass
+        _bridge = None
+    # Also clear env so _inject_auth_from_secrets re-reads session state
+    os.environ.pop("NOTEBOOKLM_AUTH_JSON", None)

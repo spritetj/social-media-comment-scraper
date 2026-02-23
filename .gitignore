@@ -4,3 +4,5 @@ __pycache__/
 .DS_Store
 SERP/
 PLAN_social_listening_platform.md
+NotebookLM/
+cookies.txt
