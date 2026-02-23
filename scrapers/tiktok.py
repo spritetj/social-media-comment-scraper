@@ -453,7 +453,7 @@ class TikTokCommentScraper:
                 comments.extend(replies)
 
         except Exception as e:
-            self._progress("This method is not available")
+            self._progress("Could not load comments")
         finally:
             try:
                 if browser:

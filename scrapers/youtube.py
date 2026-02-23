@@ -977,7 +977,7 @@ class YouTubeCommentScraper:
         if not YTDLP_AVAILABLE:
             return []
 
-        self._progress("Trying alternative method...")
+        self._progress("Retrying...")
 
         loop = asyncio.get_event_loop()
 
@@ -1009,7 +1009,7 @@ class YouTubeCommentScraper:
                     info = ydl.extract_info(video_url, download=False)
                     return info
             except Exception as e:
-                self._progress("Could not load comments with this method")
+                self._progress("Could not load comments")
                 return None
 
         try:
@@ -1028,7 +1028,7 @@ class YouTubeCommentScraper:
         raw_comments = info.get("comments", [])
 
         if not raw_comments:
-            self._progress("No comments found with this method")
+            self._progress("No comments found")
             return []
 
         self._progress(f"Found {len(raw_comments)} comments")
@@ -1235,7 +1235,7 @@ class YouTubeCommentScraper:
                     continuation = None
 
             if not continuation:
-                self._progress("Could not find comments continuation token")
+                self._progress("Could not load comments section")
                 return []
 
             if video_title:

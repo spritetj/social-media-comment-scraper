@@ -290,31 +290,27 @@ def search_google(
     Returns:
         List of {"url": str, "title": str, "snippet": str}
     """
-    # Try Serper.dev first
+    # Try backends in priority order
     results = _search_serper(query, max_results, gl, hl)
     if results:
         if progress_callback:
-            progress_callback(f"Found {len(results)} Google results (via Serper)")
+            progress_callback(f"Found {len(results)} results")
         return results
 
-    # Try SerpAPI
     results = _search_serpapi(query, max_results, gl, hl)
     if results:
         if progress_callback:
-            progress_callback(f"Found {len(results)} Google results (via SerpAPI)")
+            progress_callback(f"Found {len(results)} results")
         return results
 
-    # Fallback to DDG (limited operator support)
-    if progress_callback:
-        progress_callback("No search API key configured — using DuckDuckGo fallback")
     results = _search_ddg(query, max_results)
     if results:
         if progress_callback:
-            progress_callback(f"Found {len(results)} results (via DuckDuckGo)")
+            progress_callback(f"Found {len(results)} results")
         return results
 
     if progress_callback:
-        progress_callback("No results found — configure a Serper.dev API key in Settings for best results")
+        progress_callback("No results found for this query")
     return []
 
 
@@ -417,7 +413,7 @@ def search_multi_queries(
                     seen_urls.add(r["url"])
                     platform_results.append(r)
             if progress_callback and platform_results:
-                progress_callback(f"Found {len(platform_results)} YouTube videos via yt-dlp")
+                progress_callback(f"Found {len(platform_results)} YouTube videos")
 
         # Google search with dork operators for ALL platforms (including YouTube)
         # This supplements yt-dlp results and is the primary source for other platforms
@@ -427,8 +423,7 @@ def search_multi_queries(
                 break
 
             if progress_callback:
-                display_q = query[:120]
-                progress_callback(f"Query: {display_q}")
+                progress_callback(f"Searching {platform.title()}...")
 
             results = search_google(
                 query,
@@ -446,12 +441,8 @@ def search_multi_queries(
 
             if progress_callback and new_count:
                 progress_callback(
-                    f"{platform.title()}: +{new_count} new URLs (total: {len(platform_results)})"
+                    f"{platform.title()}: found {len(platform_results)} relevant content"
                 )
-                for item in platform_results[-new_count:][:3]:
-                    title = item.get('title', '')[:80]
-                    if title:
-                        progress_callback(f"  → {title}")
 
             # Rate limiting between queries
             time.sleep(random.uniform(0.3, 0.8))

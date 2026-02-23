@@ -378,7 +378,7 @@ def _render_query_review():
             wf["step"] = 0
             st.rerun()
     with col_approve:
-        if st.button("Approve & Search Google", type="primary", use_container_width=True):
+        if st.button("Approve & Find Content", type="primary", use_container_width=True):
             # Restore Google operators for actual search
             full_queries = {}
             for platform, clean_list in edited_clean_queries.items():
@@ -403,7 +403,7 @@ def _render_query_review():
                     unsafe_allow_html=True,
                 )
 
-            progress_placeholder.info("Searching Google for URLs across platforms...")
+            progress_placeholder.info("Finding relevant content across platforms...")
 
             from search.pipeline import step_search_urls
             url_result = step_search_urls(
@@ -632,18 +632,23 @@ def _render_scraping():
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _render_pipeline_details(result: dict):
-    """Render an expandable panel showing pipeline transparency details."""
-    with st.expander("Pipeline Details — Queries, URLs & Scrape Log", expanded=False):
-        tab1, tab2, tab3 = st.tabs(["Generated Queries", "Discovered URLs", "Scrape Log"])
+    """Render an expandable panel showing collection details."""
+    with st.expander("Collection Details", expanded=False):
+        tab1, tab2, tab3 = st.tabs(["Search Terms", "Content Sources", "Collection Log"])
 
         with tab1:
             queries = result.get("queries", {})
             if queries:
                 for platform, q_list in queries.items():
-                    st.markdown(f"**{platform.title()}** ({len(q_list)} queries)")
-                    st.code("\n".join(q_list), language="text")
+                    clean_list = [_strip_operators(q) for q in q_list]
+                    # Deduplicate after stripping
+                    seen_q = set()
+                    unique = [q for q in clean_list if q and q not in seen_q and not seen_q.add(q)]
+                    st.markdown(f"**{platform.title()}** ({len(unique)} search terms)")
+                    for q in unique:
+                        st.markdown(f"- {q}")
             else:
-                st.info("No query data available.")
+                st.info("No search terms available.")
 
         with tab2:
             url_map_detail = result.get("url_map_detail", {})
@@ -676,13 +681,13 @@ def _render_pipeline_details(result: dict):
                 )
 
                 m1, m2, m3, m4 = st.columns(4)
-                m1.metric("URLs with comments", ok_count)
-                m2.metric("Empty URLs", empty_count)
+                m1.metric("Sources with comments", ok_count)
+                m2.metric("Empty sources", empty_count)
                 m3.metric("Total comments", total_scraped_comments)
                 if suspect_count > 0:
-                    m4.metric("Suspect URLs", suspect_count)
+                    m4.metric("Off-topic sources", suspect_count)
                 else:
-                    m4.metric("Suspect URLs", 0)
+                    m4.metric("Off-topic sources", 0)
 
                 # Warning banner for mismatched content
                 topic = result.get("topic", "") or _get_wf().get("topic", "")
@@ -692,41 +697,20 @@ def _render_pipeline_details(result: dict):
                 ]
                 if mismatched:
                     st.warning(
-                        f"**{len(mismatched)} URL(s) may contain wrong content** "
-                        f"(not matching topic \"{topic}\"). "
-                        f"Comments from these URLs may be unrelated."
+                        f"**{len(mismatched)} source(s) may contain off-topic content** "
+                        f"(not matching \"{topic}\"). "
+                        f"Some comments may be unrelated."
                     )
-                    for entry in mismatched:
-                        ct = entry.get("content_title", "") or "(no caption detected)"
-                        warnings_list = entry.get("warnings", [])
-                        warn_text = " | ".join(warnings_list) if warnings_list else ""
-                        st.markdown(
-                            f'<div style="border:1px solid #F87171;border-radius:8px;'
-                            f'padding:8px 12px;margin:4px 0;background:rgba(248,113,113,0.05)">'
-                            f'<div style="font-size:0.8rem;color:#F87171;font-weight:600">'
-                            f'SUSPECT</div>'
-                            f'<div style="font-size:0.82rem;margin-top:2px">'
-                            f'<a href="{entry["url"]}" style="color:#60A5FA">'
-                            f'{entry["url"][:80]}...</a></div>'
-                            f'<div style="font-size:0.8rem;color:#94A3B8;margin-top:2px">'
-                            f'Actual content: {ct[:120]}</div>'
-                            f'{"<div style=font-size:0.75rem;color:#FBBF24;margin-top:2px>" + warn_text + "</div>" if warn_text else ""}'
-                            f'</div>',
-                            unsafe_allow_html=True,
-                        )
 
-                # Build display dataframe with enhanced columns
+                # Build display dataframe — show content titles, not raw URLs/internals
                 display_rows = []
                 for s in scrape_log:
                     is_match = s.get("content_match", True)
                     display_rows.append({
                         "platform": s["platform"],
-                        "url": s["url"],
-                        "title": s.get("title", ""),
-                        "content_title": s.get("content_title", ""),
-                        "comment_count": s["comment_count"],
-                        "status": s["status"],
-                        "match_status": "OK" if is_match else "SUSPECT",
+                        "content": s.get("content_title", "") or s.get("title", ""),
+                        "comments": s["comment_count"],
+                        "status": "OK" if is_match else "Off-topic",
                     })
                 df_log = pd.DataFrame(display_rows)
 
@@ -734,18 +718,15 @@ def _render_pipeline_details(result: dict):
                     df_log,
                     column_config={
                         "platform": st.column_config.TextColumn("Platform", width="small"),
-                        "url": st.column_config.LinkColumn("URL", width="large"),
-                        "title": st.column_config.TextColumn("Title", width="medium"),
-                        "content_title": st.column_config.TextColumn("Actual Content", width="medium"),
-                        "comment_count": st.column_config.NumberColumn("Comments", width="small"),
+                        "content": st.column_config.TextColumn("Content", width="large"),
+                        "comments": st.column_config.NumberColumn("Comments", width="small"),
                         "status": st.column_config.TextColumn("Status", width="small"),
-                        "match_status": st.column_config.TextColumn("Match", width="small"),
                     },
                     use_container_width=True,
                     hide_index=True,
                 )
             else:
-                st.info("No scrape log data available.")
+                st.info("No collection data available.")
 
 
 def _render_customer_insight(insight: dict, topic: str):

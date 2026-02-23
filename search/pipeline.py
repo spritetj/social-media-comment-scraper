@@ -558,12 +558,12 @@ async def step_scrape_and_analyze(
         # --- NotebookLM path: VADER sentiment + skip per-comment LLM tagging ---
         if len(all_clean) >= 5:
             if progress_callback:
-                progress_callback("Applying sentiment analysis (VADER)...")
+                progress_callback("Analyzing sentiment...")
             _apply_vader_tags(all_clean, result.get("analysis", {}))
             result["comments_clean"] = all_clean
             result["tag_summary"] = _vader_tag_summary(all_clean)
             if progress_callback:
-                progress_callback("Sentiment tagging complete (VADER).")
+                progress_callback("Sentiment analysis complete.")
         # NotebookLM corpus-level insight is generated separately via the
         # NLM setup step in the One Search UI (not here in the pipeline).
         # The pipeline just prepares VADER tags for immediate use.
@@ -577,22 +577,22 @@ async def step_scrape_and_analyze(
                 from analysis.llm_tagger import tag_comments, merge_tags_into_comments, aggregate_tags
 
                 if progress_callback:
-                    progress_callback("Running AI comment tagging...")
+                    progress_callback("Categorizing comments...")
                 tags = await tag_comments(all_clean, progress_callback=progress_callback)
                 all_clean = merge_tags_into_comments(all_clean, tags)
                 result["comments_clean"] = all_clean
                 result["comment_tags"] = tags
                 result["tag_summary"] = aggregate_tags(all_clean)
                 if progress_callback:
-                    progress_callback("AI tagging complete.")
+                    progress_callback("Categorization complete.")
             except Exception as e:
                 if progress_callback:
-                    progress_callback(f"AI tagging skipped: {e}")
+                    progress_callback(f"Categorization skipped: {e}")
 
         # Generate AI Customer Insight Report
         if len(all_clean) >= 5:
             if progress_callback:
-                progress_callback("Generating AI Customer Insight Report...")
+                progress_callback("Generating insight report...")
             try:
                 from ai.client import LLMClient
                 from ai.prompts import format_comments_for_prompt, CUSTOMER_INSIGHT_REPORT
@@ -625,7 +625,7 @@ async def step_scrape_and_analyze(
                 result["customer_insight"] = insight
             except Exception as e:
                 if progress_callback:
-                    progress_callback(f"AI Insight error: {e}")
+                    progress_callback(f"Insight report error: {e}")
 
     return result
 

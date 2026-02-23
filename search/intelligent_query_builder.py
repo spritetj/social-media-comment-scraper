@@ -251,13 +251,8 @@ async def build_intelligent_queries(
             )
             if progress_callback:
                 total = sum(len(v) for v in result.queries.values())
-                if result.research_question:
-                    progress_callback(f"Research: {result.research_question}")
-                if result.hypotheses:
-                    hyp_summary = "; ".join(h for h in result.hypotheses[:3])
-                    progress_callback(f"Hypotheses: {hyp_summary}")
                 progress_callback(
-                    f"Generated {total} search queries across {len(result.queries)} platforms (LLM)"
+                    f"Prepared {total} search variations across {len(result.queries)} platforms"
                 )
             return result
         except Exception:
@@ -267,11 +262,7 @@ async def build_intelligent_queries(
     strategy = _build_search_strategy(text, date_range)
 
     if progress_callback:
-        progress_callback(
-            f"Brand: {strategy.brand_entity} | Intent: {strategy.intent}"
-            + (f" | Thai: {', '.join(strategy.thai_transliterations[:2])}"
-               if strategy.thai_transliterations else "")
-        )
+        progress_callback("Preparing search strategy...")
 
     queries = _generate_rule_based_queries(
         strategy, platforms, max_queries_per_platform,
@@ -284,7 +275,7 @@ async def build_intelligent_queries(
 
     if progress_callback:
         total = sum(len(v) for v in queries.values())
-        progress_callback(f"Generated {total} search queries across {len(queries)} platforms")
+        progress_callback(f"Prepared {total} search variations across {len(queries)} platforms")
 
     return IntelligentQueryResult(
         queries=queries,
