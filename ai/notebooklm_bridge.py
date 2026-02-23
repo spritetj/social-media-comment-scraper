@@ -1,27 +1,25 @@
 """
-NotebookLM MCP Bridge
-======================
-Spawns the NotebookLM MCP server as a subprocess and communicates
-via JSON-RPC over stdin/stdout. Provides a simple Python interface
-for querying NotebookLM notebooks.
+NotebookLM Bridge (notebooklm-py)
+==================================
+Pure Python client for NotebookLM using the notebooklm-py library.
+No Node.js or browser required at runtime — uses HTTP calls to
+NotebookLM's internal RPC endpoints.
+
+Auth: User runs `notebooklm login` locally once, then copies the
+storage_state.json content into the NOTEBOOKLM_AUTH_JSON env var
+(or Streamlit Cloud secrets).
 
 Usage:
-    bridge = NotebookLMBridge()
-    answer, session_id = await bridge.ask_question(
-        "What are the main themes?",
-        notebook_url="https://notebooklm.google.com/notebook/...",
-    )
+    bridge = get_bridge()
+    await bridge.start()
+    results = await bridge.create_and_query(comments_md, topic, queries)
 """
 
 import asyncio
-import json
 import logging
 import os
-import shutil
-import subprocess
-import sys
 import time
-from typing import Any
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +28,24 @@ NLM_DAILY_LIMIT = 50
 NLM_WARN_THRESHOLD = 40
 
 
+def _inject_auth_from_secrets():
+    """Inject NOTEBOOKLM_AUTH_JSON from Streamlit secrets if not in env."""
+    if "NOTEBOOKLM_AUTH_JSON" not in os.environ:
+        try:
+            import streamlit as st
+            val = st.secrets.get("NOTEBOOKLM_AUTH_JSON", "")
+            if val:
+                os.environ["NOTEBOOKLM_AUTH_JSON"] = val
+        except Exception:
+            pass
+
+
 class NotebookLMBridge:
-    """Manages a NotebookLM MCP server subprocess and provides
+    """Manages a NotebookLM client via notebooklm-py and provides
     async methods to interact with it."""
 
     def __init__(self):
-        self._process: subprocess.Popen | None = None
-        self._request_id = 0
+        self._client = None
         self._lock = asyncio.Lock()
 
     # ------------------------------------------------------------------
@@ -44,213 +53,160 @@ class NotebookLMBridge:
     # ------------------------------------------------------------------
 
     async def start(self):
-        """Spawn the MCP server subprocess and perform the handshake."""
-        if self._process and self._process.poll() is None:
-            return  # already running
+        """Initialize the httpx-based client from stored cookies."""
+        if self._client is not None:
+            return  # already initialized
 
-        env = os.environ.copy()
-        # Streamlit may run with a restricted PATH that excludes Node.js.
-        # Prepend common Node.js installation paths to ensure npx is found.
-        extra_paths = [
-            "/opt/homebrew/bin",        # macOS Homebrew ARM
-            "/usr/local/bin",           # macOS Homebrew Intel / Linux
-            os.path.expanduser("~/.nvm/current/bin"),  # nvm
-            os.path.expanduser("~/.local/bin"),
-        ]
-        existing_path = env.get("PATH", "/usr/bin:/bin")
-        env["PATH"] = ":".join(extra_paths) + ":" + existing_path
-
-        # Try to resolve npx to an absolute path for reliability
-        npx_cmd = shutil.which("npx", path=env["PATH"]) or "npx"
+        _inject_auth_from_secrets()
 
         try:
-            self._process = subprocess.Popen(
-                [npx_cmd, "-y", "notebooklm-mcp"],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=env,
-                text=True,
-                bufsize=1,
-            )
-        except FileNotFoundError:
+            from notebooklm import NotebookLMClient
+            client = await NotebookLMClient.from_storage()
+            # Enter the async context manager to initialize the httpx session
+            self._client = await client.__aenter__()
+        except ImportError:
             raise RuntimeError(
-                "npx not found. Install Node.js (v18+) to use NotebookLM integration."
+                "notebooklm-py is not installed. "
+                "Run: pip install notebooklm-py"
             )
-
-        # MCP handshake: send initialize request
-        init_result = await self._send_request("initialize", {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name": "social-scraper", "version": "1.0"},
-        })
-        logger.info("NotebookLM MCP initialized: %s", init_result)
-
-        # Send initialized notification
-        await self._send_notification("notifications/initialized", {})
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to initialize NotebookLM client: {e}\n"
+                "Make sure NOTEBOOKLM_AUTH_JSON is set with valid cookies. "
+                "Run 'notebooklm login' locally to generate fresh cookies."
+            )
 
     async def stop(self):
-        """Gracefully shut down the MCP server."""
-        if self._process and self._process.poll() is None:
+        """Close the client connection."""
+        if self._client is not None:
             try:
-                self._process.stdin.close()
-                self._process.wait(timeout=5)
+                await self._client.__aexit__(None, None, None)
             except Exception:
-                self._process.kill()
-            self._process = None
+                pass
+            self._client = None
 
     async def _ensure_running(self):
-        """Auto-start the server if not running."""
-        if not self._process or self._process.poll() is not None:
+        """Auto-start the client if not initialized."""
+        if self._client is None:
             await self.start()
-
-    # ------------------------------------------------------------------
-    # JSON-RPC communication
-    # ------------------------------------------------------------------
-
-    async def _send_request(
-        self, method: str, params: dict, timeout: float = 120.0
-    ) -> Any:
-        """Send a JSON-RPC request and wait for the response."""
-        self._request_id += 1
-        request_id = self._request_id
-
-        message = {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": method,
-            "params": params,
-        }
-        line = json.dumps(message) + "\n"
-
-        async with self._lock:
-            proc = self._process
-            if not proc or proc.poll() is not None:
-                raise RuntimeError("MCP server is not running")
-
-            try:
-                proc.stdin.write(line)
-                proc.stdin.flush()
-            except (BrokenPipeError, OSError) as e:
-                raise RuntimeError(f"Failed to write to MCP server: {e}")
-
-            # Read response with timeout
-            loop = asyncio.get_event_loop()
-            try:
-                response_line = await asyncio.wait_for(
-                    loop.run_in_executor(None, proc.stdout.readline),
-                    timeout=timeout,
-                )
-            except asyncio.TimeoutError:
-                raise TimeoutError(
-                    f"MCP server did not respond within {timeout}s"
-                )
-
-            if not response_line:
-                raise RuntimeError("MCP server closed connection")
-
-            response = json.loads(response_line.strip())
-
-        if "error" in response:
-            err = response["error"]
-            raise RuntimeError(
-                f"MCP error [{err.get('code', '?')}]: {err.get('message', 'Unknown')}"
-            )
-
-        return response.get("result")
-
-    async def _send_notification(self, method: str, params: dict):
-        """Send a JSON-RPC notification (no response expected)."""
-        message = {
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params,
-        }
-        line = json.dumps(message) + "\n"
-        proc = self._process
-        if proc and proc.poll() is None:
-            try:
-                proc.stdin.write(line)
-                proc.stdin.flush()
-            except (BrokenPipeError, OSError):
-                pass
-
-    # ------------------------------------------------------------------
-    # MCP tool calls
-    # ------------------------------------------------------------------
-
-    async def _call_tool(
-        self, tool_name: str, arguments: dict, timeout: float = 120.0
-    ) -> str:
-        """Call an MCP tool and return its text content."""
-        result = await self._send_request(
-            "tools/call",
-            {"name": tool_name, "arguments": arguments},
-            timeout=timeout,
-        )
-        # MCP tool results have a "content" array
-        content_items = result.get("content", [])
-        texts = [c.get("text", "") for c in content_items if c.get("type") == "text"]
-        return "\n".join(texts)
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    async def ask_question(
+    async def create_and_query(
         self,
-        question: str,
-        notebook_url: str | None = None,
-        notebook_id: str | None = None,
-        session_id: str | None = None,
-    ) -> tuple[str, str]:
-        """Ask a question to NotebookLM.
+        comments_md: str,
+        topic: str,
+        queries: list[dict],
+        progress_cb: Callable[[float, str], None] | None = None,
+    ) -> dict:
+        """Create a notebook, upload comments, run all queries, return parsed results.
 
-        Returns (answer_text, session_id) for session continuity.
-        Retries once on timeout.
+        Args:
+            comments_md: Markdown-formatted comments to upload as source.
+            topic: The research topic (used for notebook/source title).
+            queries: List of query dicts with 'id' and 'question' keys.
+            progress_cb: Optional callback(progress_float, status_message).
+
+        Returns:
+            Dict mapping query IDs to answer strings.
         """
         await self._ensure_running()
 
-        args: dict[str, Any] = {"question": question}
-        if notebook_url:
-            args["notebook_url"] = notebook_url
-        if notebook_id:
-            args["notebook_id"] = notebook_id
-        if session_id:
-            args["session_id"] = session_id
-
-        for attempt in range(2):
-            try:
-                text = await self._call_tool("ask_question", args, timeout=120.0)
-                # Extract session_id from response if present
-                # The MCP server typically includes it in the response
-                resp_session_id = session_id or ""
-                if "session_id" not in args and text:
-                    # Try to extract session_id from response metadata
-                    # For now, use the provided one or generate a placeholder
-                    resp_session_id = session_id or "default"
-                return text, resp_session_id
-            except TimeoutError:
-                if attempt == 0:
-                    logger.warning("NotebookLM query timed out, retrying...")
-                    continue
-                raise
-
-        return "", session_id or ""
-
-    async def get_health(self) -> dict:
-        """Check the MCP server health and auth status."""
-        await self._ensure_running()
-        text = await self._call_tool("get_health", {}, timeout=30.0)
+        nb = None
         try:
-            return json.loads(text)
-        except (json.JSONDecodeError, TypeError):
-            return {"authenticated": False, "raw": text}
+            # 1. Create notebook
+            if progress_cb:
+                progress_cb(0.05, "Creating notebook...")
+            nb = await self._client.notebooks.create(f"Analysis: {topic}")
+            logger.info("Created notebook: %s (%s)", nb.title, nb.id)
 
-    async def setup_auth(self) -> str:
-        """Open browser for Google login. Returns status message."""
+            # 2. Add comments as text source
+            if progress_cb:
+                progress_cb(0.10, "Uploading comments...")
+            source = await self._client.sources.add_text(
+                nb.id,
+                title=f"Comments: {topic}",
+                content=comments_md,
+                wait=True,
+                wait_timeout=120.0,
+            )
+            logger.info("Source ready: %s", source.title)
+
+            # 3. Ask each query
+            parsed_results = {}
+            conversation_id = None
+
+            for i, q in enumerate(queries):
+                qid = q["id"]
+                question = q["question"]
+                progress_pct = 0.15 + (0.80 * (i + 1) / len(queries))
+
+                if progress_cb:
+                    progress_cb(
+                        progress_pct,
+                        f"Querying ({i+1}/{len(queries)}): "
+                        f"{qid.replace('_', ' ').title()}...",
+                    )
+
+                try:
+                    result = await self._client.chat.ask(
+                        nb.id,
+                        question,
+                        conversation_id=conversation_id,
+                    )
+                    parsed_results[qid] = result.answer
+                    conversation_id = result.conversation_id
+                except Exception as e:
+                    logger.warning("Query '%s' failed: %s", qid, e)
+                    parsed_results[qid] = ""
+
+            if progress_cb:
+                progress_cb(1.0, "Analysis complete!")
+
+            return parsed_results
+
+        finally:
+            # 4. Cleanup: delete notebook after analysis
+            if nb is not None:
+                try:
+                    await self._client.notebooks.delete(nb.id)
+                    logger.info("Deleted notebook: %s", nb.id)
+                except Exception as e:
+                    logger.warning("Failed to delete notebook %s: %s", nb.id, e)
+
+    async def check_auth(self) -> bool:
+        """Verify cookies are valid by listing notebooks."""
+        try:
+            await self._ensure_running()
+            await self._client.notebooks.list()
+            return True
+        except Exception:
+            return False
+
+    async def ask_question(
+        self,
+        question: str,
+        notebook_id: str | None = None,
+        conversation_id: str | None = None,
+        **kwargs,
+    ) -> tuple[str, str]:
+        """Ask a question to a specific notebook (low-level API).
+
+        Returns (answer_text, conversation_id).
+        """
         await self._ensure_running()
-        return await self._call_tool("setup_auth", {}, timeout=300.0)
+
+        if not notebook_id:
+            raise ValueError("notebook_id is required")
+
+        result = await self._client.chat.ask(
+            notebook_id,
+            question,
+            conversation_id=conversation_id,
+        )
+        return result.answer, result.conversation_id
 
     # ------------------------------------------------------------------
     # Query budget tracking

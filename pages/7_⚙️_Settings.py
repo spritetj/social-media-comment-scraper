@@ -104,15 +104,44 @@ if engine_choice == "notebooklm":
             st.caption("Query tracking will start after first analysis.")
 
     with col_auth:
-        # Notebook URL (persistent)
-        nlm_url = st.text_input(
-            "Default Notebook URL",
-            value=st.session_state.get("nlm_notebook_url", ""),
-            placeholder="https://notebooklm.google.com/notebook/...",
-            key="nlm_url_settings",
+        # Auth status check
+        from ai.notebooklm_bridge import get_bridge
+        from utils.async_runner import run_async
+
+        if st.button("Check Auth Status", use_container_width=True, key="nlm_auth_check"):
+            with st.spinner("Checking cookies..."):
+                try:
+                    bridge = get_bridge()
+                    is_valid = run_async(bridge.check_auth())
+                    if is_valid:
+                        st.success("Connected — cookies are valid.")
+                    else:
+                        st.error("Cookies expired. Re-run `notebooklm login` locally and update secrets.")
+                except Exception as e:
+                    st.error(f"Auth check failed: {e}")
+
+    # Cookie setup instructions
+    with st.expander("Cookie Setup (one-time)", expanded=False):
+        st.markdown(
+            "NotebookLM analysis is fully automated — the app creates notebooks, "
+            "uploads comments, queries, and cleans up automatically. "
+            "You just need to provide authentication cookies.\n\n"
+            "**One-time setup** (repeat every ~1-2 weeks when cookies expire):\n\n"
+            "```bash\n"
+            "# On your local machine:\n"
+            "pip install \"notebooklm-py[browser]\"\n"
+            "playwright install chromium\n"
+            "notebooklm login          # Opens browser - sign in with Google\n"
+            "cat ~/.notebooklm/storage_state.json  # Copy this JSON\n"
+            "```\n\n"
+            "Then paste into **Streamlit Cloud > Settings > Secrets**:\n"
+            "```toml\n"
+            "NOTEBOOKLM_AUTH_JSON = '{\"cookies\": [...], \"origins\": []}'\n"
+            "```\n\n"
+            "For local development, set the `NOTEBOOKLM_AUTH_JSON` environment variable "
+            "or simply run `notebooklm login` and the default path will be used.\n\n"
+            "[notebooklm-py docs](https://github.com/teng-lin/notebooklm-py)"
         )
-        if nlm_url:
-            st.session_state["nlm_notebook_url"] = nlm_url
 
     st.markdown("---")
 

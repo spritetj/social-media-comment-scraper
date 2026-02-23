@@ -55,18 +55,12 @@ except ImportError:
 # Workflow state
 # ═══════════════════════════════════════════════════════════════════════════
 
-_STEP_LABELS_DEFAULT = ["Input", "Queries", "URLs", "Scraping", "Results"]
-_STEP_LABELS_NLM = ["Input", "Queries", "URLs", "Scraping", "NotebookLM Setup", "Results"]
+_STEP_LABELS = ["Input", "Queries", "URLs", "Scraping", "Results"]
 
 
 def _is_nlm_mode() -> bool:
     """Check if NotebookLM is the active analysis provider."""
     return st.session_state.get("active_provider") == "notebooklm"
-
-
-def _get_step_labels() -> list[str]:
-    """Get step labels based on current mode."""
-    return _STEP_LABELS_NLM if _is_nlm_mode() else _STEP_LABELS_DEFAULT
 
 
 def _get_wf() -> dict:
@@ -132,7 +126,7 @@ def _restore_operators(clean_query: str, platform: str, date_range: str) -> str:
 
 def _render_step_indicator(current_step: int):
     """Render a horizontal step progress bar."""
-    step_labels = _get_step_labels()
+    step_labels = _STEP_LABELS
     steps_html = ""
     for i, label in enumerate(step_labels):
         if i < current_step:
@@ -558,11 +552,11 @@ def _render_scraping():
 
         wf["result"] = result
 
-        # In NLM mode, go to NLM setup step (step 4); otherwise go to Results (step 4)
+        # In NLM mode, run automated analysis before advancing to Results
         if _is_nlm_mode():
-            wf["step"] = 4  # NLM Setup step
-        else:
-            wf["step"] = 4  # Results step (same index, but different label)
+            _run_notebooklm_analysis(wf, result)
+
+        wf["step"] = 4  # Results
         st.rerun()
 
     except Exception as e:
@@ -1096,168 +1090,58 @@ def _regenerate_insight(wf: dict, result: dict):
     result["customer_insight"] = insight
 
 
-def _render_notebooklm_setup():
-    """Render NotebookLM setup step: export comments, get notebook URL, run analysis."""
-    wf = _get_wf()
-    result = wf.get("result")
-
-    if not result or not result.get("comments_clean"):
-        st.warning("No comments available for analysis.")
-        if st.button("Back to Scraping"):
-            wf["step"] = 3
-            st.rerun()
-        return
-
-    comments = result["comments_clean"]
-    topic = wf.get("topic", "")
-
-    st.markdown("### NotebookLM Analysis Setup")
-    st.markdown(
-        '<p style="font-size:0.88rem;color:#94A3B8">'
-        'Upload your comments to NotebookLM for free AI-powered analysis. '
-        'Follow the steps below.</p>',
-        unsafe_allow_html=True,
-    )
-
-    # --- Step 1: Download comment file ---
-    st.markdown("#### Step 1: Download Comment File")
-
-    from utils.notebooklm_export import export_comments_markdown, estimate_word_count, split_for_notebooklm
-
-    word_count = estimate_word_count(comments)
-    files = split_for_notebooklm(comments, topic)
-
-    if len(files) == 1:
-        st.download_button(
-            f"Download Comments ({len(comments):,} comments, ~{word_count:,} words)",
-            data=files[0],
-            file_name=f"comments_{topic.replace(' ', '_')}.md",
-            mime="text/markdown",
-            use_container_width=True,
-            type="primary",
-        )
-    else:
-        st.warning(f"Comments exceed NotebookLM's limit. Split into {len(files)} files.")
-        for i, file_content in enumerate(files, 1):
-            st.download_button(
-                f"Download Part {i}/{len(files)}",
-                data=file_content,
-                file_name=f"comments_{topic.replace(' ', '_')}_part{i}.md",
-                mime="text/markdown",
-                use_container_width=True,
-                key=f"nlm_download_{i}",
-            )
-
-    # --- Step 2: Instructions ---
-    st.markdown("#### Step 2: Create NotebookLM Notebook")
-    with st.expander("How to set up NotebookLM", expanded=False):
-        st.markdown("""
-1. Go to [notebooklm.google.com](https://notebooklm.google.com)
-2. Click **+ New** to create a new notebook
-3. Upload the downloaded comment file(s) as a source
-4. Click **Share** (top right) and set to **"Anyone with the link"**
-5. Copy the notebook URL and paste it below
-        """)
-
-    # --- Step 3: Notebook URL input ---
-    st.markdown("#### Step 3: Paste Notebook URL")
-
-    default_url = st.session_state.get("nlm_notebook_url", "")
-    notebook_url = st.text_input(
-        "NotebookLM Notebook URL",
-        value=default_url,
-        placeholder="https://notebooklm.google.com/notebook/...",
-        key="nlm_url_onesearch",
-        label_visibility="collapsed",
-    )
-    if notebook_url:
-        st.session_state["nlm_notebook_url"] = notebook_url
-
-    # Query budget info
-    try:
-        from ai.notebooklm_bridge import NotebookLMBridge
-        from ai.notebooklm_queries import get_query_count
-        n_queries = get_query_count(len(comments))
-        remaining = NotebookLMBridge.queries_remaining()
-        st.caption(
-            f"This analysis will use ~{n_queries} queries. "
-            f"You have {remaining} queries remaining today."
-        )
-        if n_queries > remaining:
-            st.warning(
-                f"Not enough queries remaining ({remaining} left, need {n_queries}). "
-                "Try again tomorrow or switch to Paid API in Settings."
-            )
-    except Exception:
-        pass
-
-    # --- Action buttons ---
-    col_back, col_skip, col_analyze = st.columns([1, 1, 2])
-
-    with col_back:
-        if st.button("Back", use_container_width=True, key="nlm_back"):
-            wf["step"] = 2
-            st.rerun()
-
-    with col_skip:
-        if st.button("Skip to Results", use_container_width=True, key="nlm_skip"):
-            wf["step"] = 5  # Results
-            st.rerun()
-
-    with col_analyze:
-        analyze_disabled = not notebook_url
-        if st.button(
-            "Analyze with NotebookLM",
-            type="primary",
-            use_container_width=True,
-            disabled=analyze_disabled,
-            key="nlm_analyze",
-        ):
-            if not notebook_url:
-                st.warning("Please paste a NotebookLM notebook URL first.")
-                return
-
-            _run_notebooklm_analysis(wf, result, notebook_url)
-
-
-def _run_notebooklm_analysis(wf: dict, result: dict, notebook_url: str):
-    """Execute NotebookLM queries and populate the customer_insight."""
+def _run_notebooklm_analysis(wf: dict, result: dict):
+    """Execute automated NotebookLM analysis: create notebook, upload, query, cleanup."""
     from ai.notebooklm_bridge import get_bridge, NotebookLMBridge
     from ai.notebooklm_queries import get_analysis_queries
     from ai.notebooklm_parser import compose_customer_insight, insight_to_tag_summary
+    from utils.notebooklm_export import export_comments_markdown
 
     comments = result.get("comments_clean", [])
+    if not comments:
+        return
+
     topic = wf.get("topic", "")
     platforms = wf.get("platforms", [])
 
+    # Check query budget
     queries = get_analysis_queries(topic, len(comments), platforms)
-    bridge = get_bridge()
-
-    progress = st.progress(0.0, text="Connecting to NotebookLM...")
-    parsed_results = {}
-    session_id = None
-
-    for i, query in enumerate(queries):
-        qid = query["id"]
-        progress_pct = (i + 1) / len(queries)
-        progress.progress(
-            progress_pct,
-            text=f"Querying NotebookLM ({i+1}/{len(queries)}): {qid.replace('_', ' ').title()}...",
+    remaining = NotebookLMBridge.queries_remaining()
+    if len(queries) > remaining:
+        st.warning(
+            f"Not enough NotebookLM queries remaining ({remaining} left, need {len(queries)}). "
+            "Skipping AI analysis. Switch to Paid API in Settings or try again tomorrow."
         )
+        return
 
-        try:
-            answer, session_id = run_async(
-                bridge.ask_question(
-                    question=query["question"],
-                    notebook_url=notebook_url,
-                    session_id=session_id,
-                )
+    # Build comments markdown
+    comments_md = export_comments_markdown(comments, topic, platforms)
+
+    # Run automated analysis via bridge
+    bridge = get_bridge()
+    progress = st.progress(0.0, text="Connecting to NotebookLM...")
+
+    def _progress_cb(pct: float, msg: str):
+        progress.progress(pct, text=msg)
+
+    try:
+        parsed_results = run_async(
+            bridge.create_and_query(
+                comments_md=comments_md,
+                topic=topic,
+                queries=queries,
+                progress_cb=_progress_cb,
             )
-            parsed_results[qid] = answer
-            NotebookLMBridge.increment_usage()
-        except Exception as e:
-            st.warning(f"Query '{qid}' failed: {e}")
-            parsed_results[qid] = ""
+        )
+        NotebookLMBridge.increment_usage(len(queries))
+    except Exception as e:
+        progress.empty()
+        st.warning(
+            f"NotebookLM analysis failed: {e}\n\n"
+            "Check that NOTEBOOKLM_AUTH_JSON is set with valid cookies. "
+            "Results will show without AI analysis."
+        )
+        return
 
     progress.progress(1.0, text="Analysis complete!")
 
@@ -1269,7 +1153,6 @@ def _run_notebooklm_analysis(wf: dict, result: dict, notebook_url: str):
         # Reconstruct tag_summary for heatmap
         tag_summary = insight_to_tag_summary(insight)
         if tag_summary:
-            # Merge with existing VADER-based tag_summary
             existing = result.get("tag_summary", {})
             existing["aspect_sentiment"] = tag_summary.get("aspect_sentiment", {})
             result["tag_summary"] = existing
@@ -1277,11 +1160,7 @@ def _run_notebooklm_analysis(wf: dict, result: dict, notebook_url: str):
         wf["result"] = result
         st.success(f"NotebookLM analysis complete! Used {len(queries)} queries.")
     else:
-        st.error("All queries failed. Check the notebook URL and try again.")
-        return
-
-    wf["step"] = 5  # Results
-    st.rerun()
+        st.warning("NotebookLM analysis returned no results. Results will show without AI analysis.")
 
 
 def _render_results():
@@ -1326,8 +1205,9 @@ def _render_results():
             # Regenerate button
             if _is_nlm_mode():
                 if st.button("Re-analyze with NotebookLM", key="regen_insight"):
-                    wf["step"] = 4  # Back to NLM Setup
-                    st.rerun()
+                    with st.spinner("Re-running NotebookLM analysis..."):
+                        _run_notebooklm_analysis(wf, result)
+                        st.rerun()
             elif st.button("Regenerate AI Report", key="regen_insight"):
                 with st.spinner("Regenerating AI Customer Insight Report..."):
                     try:
@@ -1339,10 +1219,10 @@ def _render_results():
             # Show a button to generate if it wasn't auto-generated
             st.markdown("---")
             if _is_nlm_mode():
-                # In NLM mode, offer to go back to NLM setup
                 if st.button("Generate Report via NotebookLM", type="primary", key="gen_insight_nlm"):
-                    wf["step"] = 4  # NLM Setup
-                    st.rerun()
+                    with st.spinner("Running NotebookLM analysis..."):
+                        _run_notebooklm_analysis(wf, result)
+                        st.rerun()
             elif st.button("Generate AI Customer Insight Report", type="primary", key="gen_insight"):
                 with st.spinner("Generating AI Customer Insight Report..."):
                     try:
@@ -1427,9 +1307,4 @@ elif current_step == 2:
 elif current_step == 3:
     _render_scraping()
 elif current_step == 4:
-    if _is_nlm_mode():
-        _render_notebooklm_setup()
-    else:
-        _render_results()
-elif current_step == 5:
     _render_results()
