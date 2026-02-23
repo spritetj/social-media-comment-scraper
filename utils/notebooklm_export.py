@@ -71,40 +71,60 @@ def export_comments_markdown(
         lines.append(f"## {platform.title()} Comments ({len(platform_comments):,})")
         lines.append("")
 
-        # Sort: top-level comments first, then by likes descending
-        top_level = [c for c in platform_comments if not c.get("is_reply")]
-        replies = [c for c in platform_comments if c.get("is_reply")]
-        top_level.sort(key=lambda c: c.get("likes", 0), reverse=True)
-
-        # Build reply lookup by parent
-        reply_map: dict[str, list[dict]] = {}
-        for r in replies:
-            parent = r.get("parent_id", "")
-            if parent:
-                reply_map.setdefault(parent, []).append(r)
+        # Group by content (post/video caption) for context
+        by_content: dict[str, list[dict]] = {}
+        for c in platform_comments:
+            ct = c.get("content_title", "").strip() or "(untitled)"
+            by_content.setdefault(ct, []).append(c)
 
         comment_num = 0
-        for c in top_level:
-            comment_num += 1
-            _append_comment(lines, c, comment_num)
+        for content_title, content_comments in by_content.items():
+            # Show post/video caption as subheading
+            source_url = ""
+            for c in content_comments:
+                if c.get("source_url"):
+                    source_url = c["source_url"]
+                    break
+            caption_display = content_title[:300]
+            if content_title != "(untitled)":
+                lines.append(f"### Post/Video: \"{caption_display}\"")
+                if source_url:
+                    lines.append(f"Source: {source_url}")
+                lines.append("")
 
-            # Append replies
-            comment_id = c.get("comment_id", "")
-            if comment_id and comment_id in reply_map:
-                for reply in reply_map[comment_id]:
-                    _append_reply(lines, reply)
+            # Sort: top-level comments first, then by likes descending
+            top_level = [c for c in content_comments if not c.get("is_reply")]
+            replies = [c for c in content_comments if c.get("is_reply")]
+            top_level.sort(key=lambda c: c.get("likes", 0), reverse=True)
 
-        # Orphan replies (no matching parent in top-level)
-        used_reply_ids = set()
-        for reply_list in reply_map.values():
-            for r in reply_list:
-                used_reply_ids.add(id(r))
-        for r in replies:
-            if id(r) not in used_reply_ids:
+            # Build reply lookup by parent
+            reply_map: dict[str, list[dict]] = {}
+            for r in replies:
+                parent = r.get("parent_id", "")
+                if parent:
+                    reply_map.setdefault(parent, []).append(r)
+
+            for c in top_level:
                 comment_num += 1
-                _append_comment(lines, r, comment_num, is_orphan_reply=True)
+                _append_comment(lines, c, comment_num)
 
-        lines.append("")
+                # Append replies
+                comment_id = c.get("comment_id", "")
+                if comment_id and comment_id in reply_map:
+                    for reply in reply_map[comment_id]:
+                        _append_reply(lines, reply)
+
+            # Orphan replies (no matching parent in top-level)
+            used_reply_ids = set()
+            for reply_list in reply_map.values():
+                for r in reply_list:
+                    used_reply_ids.add(id(r))
+            for r in replies:
+                if id(r) not in used_reply_ids:
+                    comment_num += 1
+                    _append_comment(lines, r, comment_num, is_orphan_reply=True)
+
+            lines.append("")
 
     return "\n".join(lines)
 
