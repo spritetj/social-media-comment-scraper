@@ -72,6 +72,16 @@ def _get_wf() -> dict:
 
 def _reset_wf():
     """Reset workflow to step 0."""
+    # Clean up NotebookLM notebook if one was kept alive
+    wf = st.session_state.get("os_wf", {})
+    nb_id = wf.get("nlm_notebook_id")
+    if nb_id:
+        try:
+            from ai.notebooklm_bridge import get_bridge
+            bridge = get_bridge()
+            run_async(bridge.delete_notebook(nb_id))
+        except Exception:
+            pass
     st.session_state["os_wf"] = {"step": 0}
 
 
@@ -1014,7 +1024,9 @@ def _render_comment_explorer(result: dict, wf: dict):
         filtered = [c for c in filtered if c.get("ai_intent", "other") in sel_intents]
     if search_text:
         search_lower = search_text.lower()
-        filtered = [c for c in filtered if search_lower in c.get("text", "").lower()]
+        filtered = [c for c in filtered
+            if search_lower in c.get("text", "").lower()
+            or search_lower in c.get("content_title", "").lower()]
 
     # Sort
     if sort_by == "likes":
@@ -1077,6 +1089,7 @@ def _render_comment_explorer(result: dict, wf: dict):
         username = c.get("username", "Anonymous")
         likes = c.get("likes", 0)
         date = c.get("date", "")
+        content_title = c.get("content_title", "")
 
         # Build tag badges
         badges = f'<span style="background:rgba(59,130,246,0.15);color:#60A5FA;padding:1px 6px;border-radius:3px;font-size:0.7rem;margin-right:4px">{platform.title()}</span>'
@@ -1098,10 +1111,20 @@ def _render_comment_explorer(result: dict, wf: dict):
                     a_color = sent_colors.get(a_sent, "#64748B")
                     badges += f'<span style="background:{a_color}15;color:{a_color};padding:1px 6px;border-radius:3px;font-size:0.68rem;margin-right:3px">{a_name}</span>'
 
+        title_html = ""
+        if content_title:
+            t = content_title[:120] + ("..." if len(content_title) > 120 else "")
+            title_html = (
+                f'<div style="font-size:0.78rem;color:#94A3B8;margin-bottom:4px;'
+                f'font-style:italic;border-left:2px solid rgba(59,130,246,0.3);'
+                f'padding-left:8px">Re: {t}</div>'
+            )
+
         st.markdown(
             f'<div style="border:1px solid rgba(255,255,255,0.06);border-radius:8px;'
             f'padding:10px 14px;margin:4px 0">'
             f'<div style="margin-bottom:4px">{badges}</div>'
+            f'{title_html}'
             f'<div style="font-size:0.88rem;line-height:1.5">{text}</div>'
             f'<div style="font-size:0.72rem;color:#64748B;margin-top:4px">'
             f'@{username} | {likes} likes | {date}</div>'
@@ -1173,12 +1196,13 @@ def _run_notebooklm_analysis(wf: dict, result: dict):
         progress.progress(pct, text=msg)
 
     try:
-        parsed_results = run_async(
+        raw_result = run_async(
             bridge.create_and_query(
                 comments_md=comments_md,
                 topic=topic,
                 queries=queries,
                 progress_cb=_progress_cb,
+                keep_alive=True,
             )
         )
         NotebookLMBridge.increment_usage(len(queries))
@@ -1193,6 +1217,15 @@ def _run_notebooklm_analysis(wf: dict, result: dict):
 
     progress.progress(1.0, text="Analysis complete!")
 
+    # Extract answers from new return format
+    parsed_results = raw_result.get("answers", raw_result)
+
+    # Store notebook state for interactive chat
+    if raw_result.get("notebook_id"):
+        wf["nlm_notebook_id"] = raw_result["notebook_id"]
+        wf["nlm_conversation_id"] = raw_result.get("conversation_id")
+        wf["nlm_chat_history"] = []
+
     # Store raw toolkit results (dict of query_id → markdown)
     if any(parsed_results.values()):
         result["toolkit_results"] = parsed_results
@@ -1200,6 +1233,98 @@ def _run_notebooklm_analysis(wf: dict, result: dict):
         st.success(f"Toolkit analysis complete! Used {len(queries)} queries.")
     else:
         st.warning("NotebookLM analysis returned no results. Results will show without AI analysis.")
+
+
+def _render_nlm_chat(wf: dict):
+    """Render interactive NotebookLM chat for follow-up questions."""
+    from ai.notebooklm_bridge import get_bridge, NotebookLMBridge
+
+    nb_id = wf.get("nlm_notebook_id")
+    if not nb_id:
+        return
+
+    st.markdown("---")
+    remaining = NotebookLMBridge.queries_remaining()
+    st.markdown(
+        f"### Ask Follow-up Questions &nbsp;"
+        f"<span style='color:#94A3B8;font-size:0.82rem'>"
+        f"{remaining} queries remaining today</span>",
+        unsafe_allow_html=True,
+    )
+
+    # Quick query buttons
+    quick_queries = [
+        "What are the top 3 actionable insights from this data?",
+        "Summarize the main customer complaints and suggested solutions.",
+        "What content strategy would you recommend based on these comments?",
+        "Which customer segment has the highest potential value?",
+        "What are the key differences between platforms?",
+    ]
+
+    q1, q2, q3 = st.columns(3)
+    q4, q5, _q_spacer = st.columns(3)
+    quick_cols = [q1, q2, q3, q4, q5]
+    selected_quick = None
+    for i, (col, qq) in enumerate(zip(quick_cols, quick_queries)):
+        with col:
+            label = qq[:50] + ("..." if len(qq) > 50 else "")
+            if st.button(label, key=f"nlm_quick_{i}", use_container_width=True):
+                selected_quick = qq
+
+    # Render chat history
+    chat_history = wf.get("nlm_chat_history", [])
+    for msg in chat_history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # Chat input
+    user_input = st.chat_input(
+        "Ask a follow-up question about your data...",
+        key="nlm_chat_input",
+    )
+
+    # Determine the question to send
+    question = selected_quick or user_input
+    if not question:
+        return
+
+    # Budget check
+    if remaining <= 0:
+        st.warning(
+            "Daily query limit reached (50/day for free tier). "
+            "Try again tomorrow or upgrade your NotebookLM account."
+        )
+        return
+
+    # Show user message
+    with st.chat_message("user"):
+        st.markdown(question)
+    chat_history.append({"role": "user", "content": question})
+
+    # Query NotebookLM
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            try:
+                bridge = get_bridge()
+                conv_id = wf.get("nlm_conversation_id")
+                answer, new_conv_id = run_async(
+                    bridge.ask_question(
+                        question=question,
+                        notebook_id=nb_id,
+                        conversation_id=conv_id,
+                    )
+                )
+                wf["nlm_conversation_id"] = new_conv_id
+                NotebookLMBridge.increment_usage(1)
+                st.markdown(answer)
+                chat_history.append({"role": "assistant", "content": answer})
+            except Exception as e:
+                err_msg = f"Failed to get response: {e}"
+                st.error(err_msg)
+                chat_history.append({"role": "assistant", "content": f"Error: {err_msg}"})
+
+    wf["nlm_chat_history"] = chat_history
+    st.rerun()
 
 
 def _render_results():
@@ -1237,6 +1362,27 @@ def _render_results():
             "count": len(clean_comments),
         }
 
+        # Download buttons near top for easy access
+        dl_top1, dl_top2, dl_top_spacer = st.columns([1, 1, 2])
+        with dl_top1:
+            st.download_button(
+                "Export CSV",
+                data=export_csv_bytes(clean_comments),
+                file_name=f"one_search_{wf['topic'].replace(' ', '_')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="dl_csv_top",
+            )
+        with dl_top2:
+            st.download_button(
+                "Export JSON",
+                data=export_json_bytes(clean_comments),
+                file_name=f"one_search_{wf['topic'].replace(' ', '_')}.json",
+                mime="application/json",
+                use_container_width=True,
+                key="dl_json_top",
+            )
+
         # 2. Python Stats Report — always shown when analysis exists
         analysis = result.get("analysis")
         if analysis:
@@ -1258,6 +1404,9 @@ def _render_results():
             st.markdown("---")
             from ai.toolkit_renderer import render_toolkit_report
             render_toolkit_report(toolkit_results, wf["topic"])
+
+            # Interactive chat below toolkit report
+            _render_nlm_chat(wf)
 
             # Re-analyze button
             if st.button("Re-analyze with NotebookLM", key="regen_insight"):
@@ -1301,7 +1450,7 @@ def _render_results():
         # 6. Comment Explorer — unchanged
         _render_comment_explorer(result, wf)
 
-        # 7. Downloads — unchanged
+        # 7. Downloads
         st.markdown("")
         dl1, dl2 = st.columns(2)
         with dl1:
@@ -1311,6 +1460,7 @@ def _render_results():
                 file_name=f"one_search_{wf['topic'].replace(' ', '_')}.csv",
                 mime="text/csv",
                 use_container_width=True,
+                key="dl_csv_bottom",
             )
         with dl2:
             st.download_button(
@@ -1319,6 +1469,7 @@ def _render_results():
                 file_name=f"one_search_{wf['topic'].replace(' ', '_')}.json",
                 mime="application/json",
                 use_container_width=True,
+                key="dl_json_bottom",
             )
 
         # 8. Pipeline Details — unchanged

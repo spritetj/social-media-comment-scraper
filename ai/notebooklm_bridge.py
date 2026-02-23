@@ -141,6 +141,7 @@ class NotebookLMBridge:
         topic: str,
         queries: list[dict],
         progress_cb: Callable[[float, str], None] | None = None,
+        keep_alive: bool = False,
     ) -> dict:
         """Create a notebook, upload comments, run all queries, return parsed results.
 
@@ -149,9 +150,11 @@ class NotebookLMBridge:
             topic: The research topic (used for notebook/source title).
             queries: List of query dicts with 'id' and 'question' keys.
             progress_cb: Optional callback(progress_float, status_message).
+            keep_alive: If True, keep the notebook alive for interactive chat.
 
         Returns:
-            Dict mapping query IDs to answer strings.
+            Dict with "answers" key mapping query IDs to answer strings.
+            When keep_alive=True, also includes "notebook_id" and "conversation_id".
         """
         await self._ensure_running()
 
@@ -210,11 +213,15 @@ class NotebookLMBridge:
             if progress_cb:
                 progress_cb(1.0, "Analysis complete!")
 
-            return parsed_results
+            result = {"answers": parsed_results}
+            if keep_alive and nb is not None:
+                result["notebook_id"] = nb.id
+                result["conversation_id"] = conversation_id
+            return result
 
         finally:
-            # 4. Cleanup: delete notebook after analysis
-            if nb is not None:
+            # 4. Cleanup: delete notebook after analysis (unless keeping alive)
+            if nb is not None and not keep_alive:
                 try:
                     await self._client.notebooks.delete(nb.id)
                     logger.info("Deleted notebook: %s", nb.id)
@@ -252,6 +259,15 @@ class NotebookLMBridge:
             conversation_id=conversation_id,
         )
         return result.answer, result.conversation_id
+
+    async def delete_notebook(self, notebook_id: str):
+        """Delete a notebook by ID (for deferred cleanup)."""
+        await self._ensure_running()
+        try:
+            await self._client.notebooks.delete(notebook_id)
+            logger.info("Deleted notebook: %s", notebook_id)
+        except Exception as e:
+            logger.warning("Failed to delete notebook %s: %s", notebook_id, e)
 
     # ------------------------------------------------------------------
     # Query budget tracking
