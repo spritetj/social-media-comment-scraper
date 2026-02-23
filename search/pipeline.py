@@ -253,7 +253,7 @@ async def run_one_search(
 
     search_results = search_multi_queries(
         queries,
-        max_results_per_query=max(max_urls_per_platform * 2, 100),
+        max_results_per_query=max_urls_per_platform,
         progress_callback=progress_callback,
         topic=topic,
         target_urls_per_platform=max_urls_per_platform,
@@ -423,7 +423,7 @@ def step_search_urls(
 
     search_results = search_multi_queries(
         queries,
-        max_results_per_query=max(max_urls_per_platform * 2, 100),
+        max_results_per_query=max_urls_per_platform,
         progress_callback=progress_callback,
         topic=topic,
         target_urls_per_platform=max_urls_per_platform,
