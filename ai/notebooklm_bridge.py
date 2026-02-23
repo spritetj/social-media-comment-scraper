@@ -88,6 +88,7 @@ class NotebookLMBridge:
     def __init__(self):
         self._client = None
         self._lock = asyncio.Lock()
+        self._created_in_loop = None  # track which event loop owns the client
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -105,6 +106,7 @@ class NotebookLMBridge:
             client = await NotebookLMClient.from_storage()
             # Enter the async context manager to initialize the httpx session
             self._client = await client.__aenter__()
+            self._created_in_loop = asyncio.get_running_loop()
         except ImportError:
             raise RuntimeError(
                 "notebooklm-py is not installed. "
@@ -127,7 +129,19 @@ class NotebookLMBridge:
             self._client = None
 
     async def _ensure_running(self):
-        """Auto-start the client if not initialized."""
+        """Auto-start the client if not initialized or if the event loop changed.
+
+        run_async() creates a new event loop per call. The httpx client is
+        bound to the loop it was created in. If the current loop differs,
+        discard the stale client and re-initialize in the current loop.
+        """
+        if self._client is not None:
+            current_loop = asyncio.get_running_loop()
+            if self._created_in_loop is not current_loop:
+                # Client belongs to a dead event loop — discard without closing
+                # (calling __aexit__ on a closed loop would raise)
+                self._client = None
+                self._created_in_loop = None
         if self._client is None:
             await self.start()
 

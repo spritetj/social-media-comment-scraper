@@ -1294,30 +1294,12 @@ def _render_nlm_chat(wf: dict):
     st.markdown("---")
     remaining = NotebookLMBridge.queries_remaining()
     st.markdown(
-        f"### Ask Follow-up Questions &nbsp;"
+        f"### Chat with Your Data &nbsp;"
         f"<span style='color:#94A3B8;font-size:0.82rem'>"
         f"{remaining} queries remaining today</span>",
         unsafe_allow_html=True,
     )
-
-    # Quick query buttons
-    quick_queries = [
-        "What are the top 3 actionable insights from this data?",
-        "Summarize the main customer complaints and suggested solutions.",
-        "What content strategy would you recommend based on these comments?",
-        "Which customer segment has the highest potential value?",
-        "What are the key differences between platforms?",
-    ]
-
-    q1, q2, q3 = st.columns(3)
-    q4, q5, _q_spacer = st.columns(3)
-    quick_cols = [q1, q2, q3, q4, q5]
-    selected_quick = None
-    for i, (col, qq) in enumerate(zip(quick_cols, quick_queries)):
-        with col:
-            label = qq[:50] + ("..." if len(qq) > 50 else "")
-            if st.button(label, key=f"nlm_quick_{i}", use_container_width=True):
-                selected_quick = qq
+    st.caption("Ask any question about the scraped comments. Powered by NotebookLM (Gemini).")
 
     # Render chat history
     chat_history = wf.get("nlm_chat_history", [])
@@ -1325,9 +1307,29 @@ def _render_nlm_chat(wf: dict):
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Chat input
+    # Quick suggestion chips (only show when chat is empty)
+    selected_quick = None
+    if not chat_history:
+        st.markdown(
+            '<div style="font-size:0.8rem;color:#64748B;margin-bottom:6px">'
+            'Try one of these or type your own:</div>',
+            unsafe_allow_html=True,
+        )
+        quick_queries = [
+            "What are the top 3 actionable insights?",
+            "Summarize customer complaints and solutions",
+            "What content strategy do you recommend?",
+            "Key differences between platforms?",
+        ]
+        qcols = st.columns(len(quick_queries))
+        for i, (col, qq) in enumerate(zip(qcols, quick_queries)):
+            with col:
+                if st.button(qq, key=f"nlm_quick_{i}", use_container_width=True):
+                    selected_quick = qq
+
+    # Open-ended chat input (always visible)
     user_input = st.chat_input(
-        "Ask a follow-up question about your data...",
+        "Ask anything about your data...",
         key="nlm_chat_input",
     )
 
