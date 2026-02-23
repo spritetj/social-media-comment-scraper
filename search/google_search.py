@@ -383,7 +383,7 @@ def search_multi_queries(
             relevance filtering. Falls back to _extract_relevance_keywords(topic).
     """
     all_results = {}
-    if relevance_keywords is None:
+    if not relevance_keywords:
         relevance_keywords = _extract_relevance_keywords(topic)
 
     for platform in queries:
