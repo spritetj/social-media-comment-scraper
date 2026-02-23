@@ -256,7 +256,7 @@ def _render_input():
 
         adv1, adv2 = st.columns(2)
         with adv1:
-            max_urls = st.slider("Max URLs per platform", 5, 50, 15, step=5)
+            max_urls = st.slider("Max URLs per platform", 5, 100, 15, step=5)
         with adv2:
             max_comments = st.slider("Max comments per URL", 50, 500, 200, step=50)
 
