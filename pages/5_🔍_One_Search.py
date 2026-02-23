@@ -331,20 +331,40 @@ def _render_query_review():
     st.markdown("#### Search Queries")
     st.caption("Type your search terms (one per line). Platform targeting and date filters are applied automatically.")
 
-    # "Generate with AI" button to auto-fill queries
-    if st.button("Generate with AI", key="gen_ai_queries"):
-        with st.spinner("Generating search queries with AI..."):
-            from search.pipeline import step_generate_queries
-            qr = run_async(step_generate_queries(
-                topic=wf["topic"],
-                platforms=wf["platforms"],
-                date_range=wf.get("date_range", "any"),
-            ))
-        wf["queries"] = qr["queries"]
-        wf["relevance_keywords"] = qr.get("relevance_keywords", [])
-        wf["research_question"] = qr.get("research_question", "")
-        wf["hypotheses"] = qr.get("hypotheses", [])
-        st.rerun()
+    # Query generation buttons
+    btn_col1, btn_col2 = st.columns(2)
+    with btn_col1:
+        if st.button("Generate with AI", key="gen_ai_queries", use_container_width=True):
+            with st.spinner("Generating search queries with AI..."):
+                from search.pipeline import step_generate_queries
+                qr = run_async(step_generate_queries(
+                    topic=wf["topic"],
+                    platforms=wf["platforms"],
+                    date_range=wf.get("date_range", "any"),
+                ))
+            wf["queries"] = qr["queries"]
+            wf["relevance_keywords"] = qr.get("relevance_keywords", [])
+            wf["research_question"] = qr.get("research_question", "")
+            wf["hypotheses"] = qr.get("hypotheses", [])
+            st.rerun()
+    with btn_col2:
+        if _is_nlm_mode():
+            from ai.notebooklm_bridge import NotebookLMBridge
+            remaining = NotebookLMBridge.queries_remaining()
+            nlm_disabled = remaining <= 0
+            nlm_label = "Smart Suggest (NotebookLM)" if remaining > 5 else f"Smart Suggest ({remaining} left)"
+            if st.button(nlm_label, key="gen_nlm_queries", use_container_width=True, disabled=nlm_disabled):
+                if remaining <= 0:
+                    st.warning("Daily query limit reached. Try again tomorrow.")
+                else:
+                    with st.spinner("Getting smart suggestions from NotebookLM..."):
+                        from search.pipeline import step_generate_queries_nlm
+                        qr = run_async(step_generate_queries_nlm(
+                            topic=wf["topic"],
+                            platforms=wf["platforms"],
+                        ))
+                    wf["queries"] = qr["queries"]
+                    st.rerun()
 
     # Per-platform text areas — show clean queries (no site:/after: operators)
     edited_clean_queries = {}
@@ -874,7 +894,6 @@ def _render_aspect_heatmap(result: dict):
     if not aspect_sentiment:
         return
 
-    st.markdown("---")
     st.markdown("### Aspect-Based Sentiment")
     st.caption("What people specifically like and dislike — auto-discovered from comments.")
 
@@ -984,7 +1003,6 @@ def _render_comment_explorer(result: dict, wf: dict):
     if not comments:
         return
 
-    st.markdown("---")
     st.markdown("### Comment Explorer")
 
     has_tags = any(c.get("ai_sentiment") for c in comments)
@@ -1265,7 +1283,12 @@ def _run_notebooklm_analysis(wf: dict, result: dict):
 
 
 def _render_nlm_chat(wf: dict):
-    """Render interactive NotebookLM chat for follow-up questions."""
+    """Render interactive NotebookLM chat for follow-up questions.
+
+    Chat history is rendered inside a fixed-height scrollable container
+    to prevent the page from growing infinitely. The chat_input stays
+    outside the container (Streamlit requirement).
+    """
     from ai.notebooklm_bridge import get_bridge, NotebookLMBridge
 
     nb_id = wf.get("nlm_notebook_id")
@@ -1282,33 +1305,36 @@ def _render_nlm_chat(wf: dict):
     )
     st.caption("Ask any question about the scraped comments. Powered by NotebookLM (Gemini).")
 
-    # Render chat history
     chat_history = wf.get("nlm_chat_history", [])
-    for msg in chat_history:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
 
-    # Quick suggestion chips (only show when chat is empty)
-    selected_quick = None
-    if not chat_history:
-        st.markdown(
-            '<div style="font-size:0.8rem;color:#64748B;margin-bottom:6px">'
-            'Try one of these or type your own:</div>',
-            unsafe_allow_html=True,
-        )
-        quick_queries = [
-            "What are the top 3 actionable insights?",
-            "Summarize customer complaints and solutions",
-            "What content strategy do you recommend?",
-            "Key differences between platforms?",
-        ]
-        qcols = st.columns(len(quick_queries))
-        for i, (col, qq) in enumerate(zip(qcols, quick_queries)):
-            with col:
-                if st.button(qq, key=f"nlm_quick_{i}", use_container_width=True):
-                    selected_quick = qq
+    # Scrollable chat history container
+    chat_container = st.container(height=500)
+    with chat_container:
+        for msg in chat_history:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
-    # Open-ended chat input (always visible)
+        # Quick suggestion chips (only show when chat is empty)
+        selected_quick = None
+        if not chat_history:
+            st.markdown(
+                '<div style="font-size:0.8rem;color:#64748B;margin-bottom:6px">'
+                'Try one of these or type your own:</div>',
+                unsafe_allow_html=True,
+            )
+            quick_queries = [
+                "What are the top 3 actionable insights?",
+                "Summarize customer complaints and solutions",
+                "What content strategy do you recommend?",
+                "Key differences between platforms?",
+            ]
+            qcols = st.columns(len(quick_queries))
+            for i, (col, qq) in enumerate(zip(qcols, quick_queries)):
+                with col:
+                    if st.button(qq, key=f"nlm_quick_{i}", use_container_width=True):
+                        selected_quick = qq
+
+    # chat_input must be outside the container (Streamlit requirement)
     user_input = st.chat_input(
         "Ask anything about your data...",
         key="nlm_chat_input",
@@ -1327,39 +1353,41 @@ def _render_nlm_chat(wf: dict):
         )
         return
 
-    # Show user message
-    with st.chat_message("user"):
-        st.markdown(question)
+    # Append user message to history
     chat_history.append({"role": "user", "content": question})
 
     # Query NotebookLM
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            try:
-                bridge = get_bridge()
-                conv_id = wf.get("nlm_conversation_id")
-                answer, new_conv_id = run_async(
-                    bridge.ask_question(
-                        question=question,
-                        notebook_id=nb_id,
-                        conversation_id=conv_id,
-                    )
+    with st.spinner("Thinking..."):
+        try:
+            bridge = get_bridge()
+            conv_id = wf.get("nlm_conversation_id")
+            answer, new_conv_id = run_async(
+                bridge.ask_question(
+                    question=question,
+                    notebook_id=nb_id,
+                    conversation_id=conv_id,
                 )
-                wf["nlm_conversation_id"] = new_conv_id
-                NotebookLMBridge.increment_usage(1)
-                st.markdown(answer)
-                chat_history.append({"role": "assistant", "content": answer})
-            except Exception as e:
-                err_msg = f"Failed to get response: {e}"
-                st.error(err_msg)
-                chat_history.append({"role": "assistant", "content": f"Error: {err_msg}"})
+            )
+            wf["nlm_conversation_id"] = new_conv_id
+            NotebookLMBridge.increment_usage(1)
+            chat_history.append({"role": "assistant", "content": answer})
+        except Exception as e:
+            err_msg = f"Failed to get response: {e}"
+            chat_history.append({"role": "assistant", "content": f"Error: {err_msg}"})
 
     wf["nlm_chat_history"] = chat_history
     st.rerun()
 
 
 def _render_results():
-    """Render the results step."""
+    """Render the results step with a tab-based dashboard layout.
+
+    Layout:
+      - Always-visible header: platform metrics + download buttons
+      - 4 tabs: Overview | AI Analysis | Explorer | Data
+      - Chat section below tabs (not inside a tab to avoid tab-reset issues)
+      - New Search button at bottom
+    """
     wf = _get_wf()
     result = wf.get("result")
 
@@ -1375,7 +1403,7 @@ def _render_results():
     total = result.get("total_comments", 0)
 
     if total > 0:
-        # 1. Results Summary (platform metrics) — unchanged
+        # ── Always-visible header: platform metrics + downloads ──
         st.markdown("### Results Summary")
         raw_by_platform = result.get("comments_raw", {})
         platforms = wf["platforms"]
@@ -1393,118 +1421,101 @@ def _render_results():
             "count": len(clean_comments),
         }
 
-        # Download buttons near top for easy access
-        dl_top1, dl_top2, dl_top_spacer = st.columns([1, 1, 2])
-        with dl_top1:
+        # Download buttons
+        dl_col1, dl_col2, dl_spacer = st.columns([1, 1, 2])
+        with dl_col1:
             st.download_button(
                 "Export CSV",
                 data=export_csv_bytes(clean_comments),
                 file_name=f"one_search_{wf['topic'].replace(' ', '_')}.csv",
                 mime="text/csv",
                 use_container_width=True,
-                key="dl_csv_top",
+                key="dl_csv",
             )
-        with dl_top2:
+        with dl_col2:
             st.download_button(
                 "Export JSON",
                 data=export_json_bytes(clean_comments),
                 file_name=f"one_search_{wf['topic'].replace(' ', '_')}.json",
                 mime="application/json",
                 use_container_width=True,
-                key="dl_json_top",
+                key="dl_json",
             )
 
-        # 2. Python Stats Report — always shown when analysis exists
-        analysis = result.get("analysis")
-        if analysis:
-            try:
-                from utils.stats_report import compose_stats_report, render_stats_report
-                stats_report = compose_stats_report(analysis)
-                if stats_report:
-                    st.markdown("---")
-                    render_stats_report(stats_report)
-            except Exception:
-                pass
+        # ── Tab-based dashboard ──
+        tab_overview, tab_ai, tab_explorer, tab_data = st.tabs(
+            ["Overview", "AI Analysis", "Explorer", "Data"]
+        )
 
-        # 3. Toolkit Report OR Legacy AI Report
-        toolkit_results = result.get("toolkit_results")
-        customer_insight = result.get("customer_insight")
+        # --- Overview tab: Stats report ---
+        with tab_overview:
+            analysis = result.get("analysis")
+            if analysis:
+                try:
+                    from utils.stats_report import compose_stats_report, render_stats_report
+                    stats_report = compose_stats_report(analysis)
+                    if stats_report:
+                        render_stats_report(stats_report)
+                except Exception:
+                    st.info("Stats report could not be generated.")
+            else:
+                st.info("No analysis data available. Run a search with enough comments to see statistics.")
 
-        if toolkit_results:
-            # Toolkit report (10 tabs from NotebookLM toolkit)
-            st.markdown("---")
-            from ai.toolkit_renderer import render_toolkit_report
-            render_toolkit_report(toolkit_results, wf["topic"])
+        # --- AI Analysis tab: Toolkit report OR legacy AI report ---
+        with tab_ai:
+            toolkit_results = result.get("toolkit_results")
+            customer_insight = result.get("customer_insight")
 
-            # Interactive chat below toolkit report
-            _render_nlm_chat(wf)
+            if toolkit_results:
+                from ai.toolkit_renderer import render_toolkit_report
+                render_toolkit_report(toolkit_results, wf["topic"])
 
-            # Re-analyze button
-            if st.button("Re-analyze with NotebookLM", key="regen_insight"):
-                with st.spinner("Re-running toolkit analysis (10 queries)..."):
-                    _run_notebooklm_analysis(wf, result)
-                    st.rerun()
-
-        elif customer_insight:
-            # Legacy AI report (from paid API path)
-            _render_customer_insight(customer_insight, wf["topic"])
-            if st.button("Regenerate AI Report", key="regen_insight"):
-                with st.spinner("Regenerating AI Customer Insight Report..."):
-                    try:
-                        _regenerate_insight(wf, result)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Regeneration failed: {e}")
-
-        elif clean_comments:
-            # No report yet — show generate button
-            st.markdown("---")
-            if _is_nlm_mode():
-                if st.button("Generate Toolkit Report via NotebookLM", type="primary", key="gen_insight_nlm"):
-                    with st.spinner("Running toolkit analysis (10 queries)..."):
+                if st.button("Re-analyze with NotebookLM", key="regen_insight"):
+                    with st.spinner("Re-running toolkit analysis (10 queries)..."):
                         _run_notebooklm_analysis(wf, result)
                         st.rerun()
-            elif st.button("Generate AI Customer Insight Report", type="primary", key="gen_insight"):
-                with st.spinner("Generating AI Customer Insight Report..."):
-                    try:
-                        _regenerate_insight(wf, result)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Generation failed: {e}")
 
-        # 4. Cross-Platform Comparison — unchanged
-        _render_cross_platform(result)
+            elif customer_insight:
+                _render_customer_insight(customer_insight, wf["topic"])
+                if st.button("Regenerate AI Report", key="regen_insight"):
+                    with st.spinner("Regenerating AI Customer Insight Report..."):
+                        try:
+                            _regenerate_insight(wf, result)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Regeneration failed: {e}")
 
-        # 5. Aspect-Based Sentiment Heatmap — unchanged (uses VADER tags)
-        _render_aspect_heatmap(result)
+            elif clean_comments:
+                if _is_nlm_mode():
+                    st.info("No AI analysis yet. Click below to generate a toolkit report.")
+                    if st.button("Generate Toolkit Report via NotebookLM", type="primary", key="gen_insight_nlm"):
+                        with st.spinner("Running toolkit analysis (10 queries)..."):
+                            _run_notebooklm_analysis(wf, result)
+                            st.rerun()
+                else:
+                    st.info("No AI analysis yet. Click below to generate an insight report.")
+                    if st.button("Generate AI Customer Insight Report", type="primary", key="gen_insight"):
+                        with st.spinner("Generating AI Customer Insight Report..."):
+                            try:
+                                _regenerate_insight(wf, result)
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Generation failed: {e}")
+            else:
+                st.info("Not enough comments for AI analysis.")
 
-        # 6. Comment Explorer — unchanged
-        _render_comment_explorer(result, wf)
+        # --- Explorer tab: Comment explorer + aspect heatmap + cross-platform ---
+        with tab_explorer:
+            _render_cross_platform(result)
+            _render_aspect_heatmap(result)
+            _render_comment_explorer(result, wf)
 
-        # 7. Downloads
-        st.markdown("")
-        dl1, dl2 = st.columns(2)
-        with dl1:
-            st.download_button(
-                "Export CSV",
-                data=export_csv_bytes(clean_comments),
-                file_name=f"one_search_{wf['topic'].replace(' ', '_')}.csv",
-                mime="text/csv",
-                use_container_width=True,
-                key="dl_csv_bottom",
-            )
-        with dl2:
-            st.download_button(
-                "Export JSON",
-                data=export_json_bytes(clean_comments),
-                file_name=f"one_search_{wf['topic'].replace(' ', '_')}.json",
-                mime="application/json",
-                use_container_width=True,
-                key="dl_json_bottom",
-            )
+        # --- Data tab: Collection details + pipeline info ---
+        with tab_data:
+            _render_pipeline_details(result)
 
-        # 8. Pipeline Details — unchanged
-        _render_pipeline_details(result)
+        # ── Chat section below tabs (avoids tab-reset on rerun) ──
+        _render_nlm_chat(wf)
 
     else:
         st.info(

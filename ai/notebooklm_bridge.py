@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 NLM_DAILY_LIMIT = 50
 NLM_WARN_THRESHOLD = 40
 
+# Shared notebook pre-loaded with query generation instructions
+QUERY_GEN_NOTEBOOK_ID = "86fd8463-32dd-4349-86f9-e8f2fb29e036"
+
 
 def _parse_cookies_txt(text: str) -> str:
     """Convert Netscape cookies.txt to Playwright storage_state.json format.

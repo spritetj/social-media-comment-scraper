@@ -631,6 +631,156 @@ async def step_scrape_and_analyze(
 
 
 # ---------------------------------------------------------------------------
+# NLM-powered query generation (via shared notebook)
+# ---------------------------------------------------------------------------
+
+NLM_QUERY_GEN_PROMPT = (
+    "Topic: \"{topic}\"\n"
+    "Platforms: {platforms}\n\n"
+    "Based on your instructions, suggest effective Google search queries "
+    "for finding social media discussions about this topic on each platform. "
+    "Return short search terms only (no explanations), organized by platform name."
+)
+
+
+async def step_generate_queries_nlm(
+    topic: str,
+    platforms: list[str],
+) -> dict:
+    """Generate search queries using the shared NotebookLM notebook.
+
+    Uses 1 NLM query from the daily budget.
+
+    Returns same shape as step_generate_queries:
+        {"queries": {platform: [query1, query2, ...]}}
+    """
+    from ai.notebooklm_bridge import get_bridge, NotebookLMBridge, QUERY_GEN_NOTEBOOK_ID
+
+    bridge = get_bridge()
+    prompt = NLM_QUERY_GEN_PROMPT.format(
+        topic=topic,
+        platforms=", ".join(p.title() for p in platforms),
+    )
+
+    answer, _ = await bridge.ask_question(
+        question=prompt,
+        notebook_id=QUERY_GEN_NOTEBOOK_ID,
+    )
+    NotebookLMBridge.increment_usage(1)
+
+    parsed = _parse_nlm_query_response(answer, platforms)
+    return {"queries": parsed}
+
+
+def _parse_nlm_query_response(response: str, platforms: list[str]) -> dict:
+    """Parse NLM markdown response into {platform: [queries]}.
+
+    Handles:
+      - Headers like ## YouTube, **YouTube**, YouTube:
+      - Bullet points (- query, * query) and numbered lists (1. query)
+      - Strips Google operators (site:, after:, before:) since they get
+        added back by _restore_operators()
+    """
+    # Normalize platform names for fuzzy matching
+    platform_aliases = {
+        "youtube": "youtube", "yt": "youtube",
+        "tiktok": "tiktok", "tik tok": "tiktok",
+        "facebook": "facebook", "fb": "facebook",
+        "instagram": "instagram", "ig": "instagram", "insta": "instagram",
+    }
+    requested = set(platforms)
+
+    result = {p: [] for p in platforms}
+    current_platform = None
+
+    for line in response.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Try to detect a platform header
+        detected = _detect_platform_header(stripped, platform_aliases, requested)
+        if detected:
+            current_platform = detected
+            continue
+
+        # Extract query from bullet/numbered list item
+        query = _extract_query_text(stripped)
+        if query and current_platform:
+            # Strip Google operators
+            query = _strip_google_operators(query)
+            if query:
+                result[current_platform].append(query)
+
+    # Fallback: if no platform sections found, collect all lines and distribute
+    total_queries = sum(len(v) for v in result.values())
+    if total_queries == 0:
+        all_queries = []
+        for line in response.splitlines():
+            stripped = line.strip()
+            q = _extract_query_text(stripped)
+            if q:
+                q = _strip_google_operators(q)
+                if q:
+                    all_queries.append(q)
+        if all_queries:
+            for p in platforms:
+                result[p] = list(all_queries)
+
+    return result
+
+
+def _detect_platform_header(
+    line: str, aliases: dict, requested: set[str]
+) -> str | None:
+    """Detect if a line is a platform section header."""
+    # Remove markdown formatting: ##, **, :
+    clean = re.sub(r'^#{1,4}\s*', '', line)
+    clean = re.sub(r'\*\*', '', clean)
+    clean = clean.rstrip(':').strip().lower()
+
+    # Check against aliases
+    for alias, canonical in aliases.items():
+        if alias in clean and canonical in requested:
+            return canonical
+    return None
+
+
+def _extract_query_text(line: str) -> str:
+    """Extract query text from a bullet or numbered list line."""
+    # Match: - query, * query, 1. query, 1) query
+    m = re.match(r'^(?:[-*•]\s*|\d+[.)]\s*)', line)
+    if m:
+        text = line[m.end():].strip()
+    else:
+        # Not a list item — skip headers and explanatory text
+        # Only accept lines that look like search queries (short, no sentences)
+        if len(line) > 100 or line.endswith('.') and not re.search(r'\d\.', line):
+            return ""
+        return ""
+
+    # Strip surrounding quotes
+    if text.startswith('"') and text.endswith('"'):
+        text = text[1:-1].strip()
+    if text.startswith("'") and text.endswith("'"):
+        text = text[1:-1].strip()
+
+    # Strip trailing explanations after — or --(space) or (...)
+    text = re.split(r'\s+[—–]\s+|\s+--\s+|\s*\(', text)[0].strip()
+
+    return text
+
+
+def _strip_google_operators(query: str) -> str:
+    """Strip site:, after:, before:, intitle:, inurl: operators from a query."""
+    q = re.sub(r'site:\S+', '', query)
+    q = re.sub(r'(?:after|before):\d{4}-\d{2}-\d{2}', '', q)
+    q = re.sub(r'-?(?:intitle|inurl):', '', q)
+    q = re.sub(r'\s+', ' ', q).strip()
+    return q
+
+
+# ---------------------------------------------------------------------------
 # Provider detection
 # ---------------------------------------------------------------------------
 
