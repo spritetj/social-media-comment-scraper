@@ -199,6 +199,138 @@ def _render_step_indicator(current_step: int):
 # Step 0: Input
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _render_api_config():
+    """Render compact API configuration section."""
+    import json
+    import os
+
+    # --- Search API status ---
+    has_serper = bool(
+        st.session_state.get("serper_api_key")
+        or os.environ.get("SERPER_API_KEY")
+    )
+    has_serpapi = bool(
+        st.session_state.get("serpapi_key")
+        or os.environ.get("SERPAPI_KEY")
+    )
+    search_ok = has_serper or has_serpapi
+
+    # --- NotebookLM status ---
+    has_nlm_session = bool(st.session_state.get("nlm_auth_json"))
+    has_nlm_env = bool(os.environ.get("NOTEBOOKLM_AUTH_JSON"))
+    nlm_ok = has_nlm_session or has_nlm_env
+
+    # Status dots
+    def _dot(ok: bool) -> str:
+        color = "#34D399" if ok else "#F87171"
+        return f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{color};margin-right:4px"></span>'
+
+    search_label = "Search API " + ("(connected)" if search_ok else "(not configured)")
+    nlm_label = "NotebookLM " + ("(connected)" if nlm_ok else "(not configured)")
+
+    st.markdown(
+        f'<div style="display:flex;gap:16px;font-size:0.82rem;margin:0.3rem 0 0.2rem 0">'
+        f'<span>{_dot(search_ok)}{search_label}</span>'
+        f'<span>{_dot(nlm_ok)}{nlm_label}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.expander("API Configuration", expanded=not search_ok):
+        # --- Search API ---
+        st.markdown(
+            '<p style="font-size:0.85rem;font-weight:600;margin-bottom:4px">Search API</p>'
+            '<p style="font-size:0.8rem;color:#94A3B8;margin-bottom:8px">'
+            'Required for Google search. Free: 2,500 queries at '
+            '<a href="https://serper.dev" target="_blank" style="color:#3B82F6">serper.dev</a>'
+            '</p>',
+            unsafe_allow_html=True,
+        )
+        serper_key = st.text_input(
+            "Serper API Key",
+            value=st.session_state.get("serper_api_key", ""),
+            type="password",
+            placeholder="paste your Serper.dev API key",
+            key="os_serper_key",
+            label_visibility="collapsed",
+        )
+        if serper_key:
+            st.session_state["serper_api_key"] = serper_key
+
+        with st.popover("Use SerpAPI instead"):
+            st.markdown(
+                '<p style="font-size:0.8rem;color:#94A3B8">'
+                'Alternative: 100 free queries/month at '
+                '<a href="https://serpapi.com" target="_blank" style="color:#3B82F6">serpapi.com</a>'
+                '</p>',
+                unsafe_allow_html=True,
+            )
+            serpapi_key = st.text_input(
+                "SerpAPI Key",
+                value=st.session_state.get("serpapi_key", ""),
+                type="password",
+                placeholder="paste your SerpAPI key",
+                key="os_serpapi_key",
+                label_visibility="collapsed",
+            )
+            if serpapi_key:
+                st.session_state["serpapi_key"] = serpapi_key
+
+        st.markdown("---")
+
+        # --- NotebookLM ---
+        st.markdown(
+            '<p style="font-size:0.85rem;font-weight:600;margin-bottom:4px">NotebookLM (AI Analysis)</p>'
+            '<p style="font-size:0.8rem;color:#94A3B8;margin-bottom:8px">'
+            'Free AI analysis powered by Google Gemini. Upload cookies to enable smart suggestions &amp; analysis.'
+            '</p>',
+            unsafe_allow_html=True,
+        )
+
+        if nlm_ok:
+            source = "cookies uploaded" if has_nlm_session else "env/secrets"
+            try:
+                from ai.notebooklm_bridge import NotebookLMBridge
+                remaining = NotebookLMBridge.queries_remaining()
+                st.markdown(
+                    f'<div style="font-size:0.82rem;color:#34D399;margin-bottom:8px">'
+                    f'Connected ({source}) &mdash; {remaining} queries remaining today</div>',
+                    unsafe_allow_html=True,
+                )
+            except Exception:
+                st.markdown(
+                    f'<div style="font-size:0.82rem;color:#34D399;margin-bottom:8px">'
+                    f'Connected ({source})</div>',
+                    unsafe_allow_html=True,
+                )
+
+        uploaded_file = st.file_uploader(
+            "Upload cookies.txt",
+            type=["txt"],
+            help="Export from 'Get cookies.txt LOCALLY' browser extension on notebooklm.google.com",
+            key="os_nlm_cookie_upload",
+        )
+        if uploaded_file is not None:
+            try:
+                from ai.notebooklm_bridge import _parse_cookies_txt, reset_bridge
+                raw_text = uploaded_file.read().decode("utf-8")
+                auth_json = _parse_cookies_txt(raw_text)
+                st.session_state["nlm_auth_json"] = auth_json
+                reset_bridge()
+                st.success(f"Cookies loaded ({len(json.loads(auth_json)['cookies'])} cookies)")
+            except Exception as e:
+                st.error(f"Failed to parse cookies.txt: {e}")
+
+        with st.popover("How to get cookies"):
+            st.markdown(
+                "1. Install [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) in Chrome\n"
+                "2. Go to [notebooklm.google.com](https://notebooklm.google.com) and sign in\n"
+                "3. Click the extension icon and export cookies\n"
+                "4. Upload the file above\n\n"
+                "Cookies last ~1-2 weeks. Re-upload when expired."
+            )
+
+
 def _render_input():
     """Render the input form (step 0)."""
     topic = st.text_input(
@@ -282,6 +414,9 @@ def _render_input():
                 from utils.common import load_cookies_as_list
                 content = ig_cookies.read().decode("utf-8")
                 cookies_map["instagram"] = load_cookies_as_list(content, "instagram.com")
+
+    # API Configuration — inline
+    _render_api_config()
 
     if st.button("Start Research", type="primary", use_container_width=True):
         if not topic.strip():
