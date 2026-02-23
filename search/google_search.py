@@ -341,12 +341,15 @@ def _extract_relevance_keywords(topic: str) -> list[str]:
 def _result_is_relevant(result: dict, keywords: list[str]) -> bool:
     """Check if a search result is relevant to the query keywords.
 
-    Primary check: keyword must appear in the TITLE.
-    This filters out results where Google only matched the keyword
-    tangentially (in sidebar, comments, related content).
+    Primary check: keyword in TITLE (strong signal).
+    Secondary check: keyword in SNIPPET (weaker but valid — keeps results
+    where the title is generic but the content clearly matches).
     """
     title = result.get("title", "").lower()
-    return any(kw in title for kw in keywords)
+    if any(kw in title for kw in keywords):
+        return True
+    snippet = result.get("snippet", "").lower()
+    return any(kw in snippet for kw in keywords)
 
 
 def search_multi_queries(

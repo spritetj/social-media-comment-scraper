@@ -483,7 +483,16 @@ async def _strategize_with_llm(
     # Apply date filter from date_range param if LLM didn't include one
     date_filter = data.get("date_filter", "")
     if not date_filter:
-        date_filter = _build_date_filter(date_range, None)
+        if isinstance(date_range, dict):
+            # Custom range: build both after: and before: parts
+            parts = []
+            if date_range.get("after"):
+                parts.append(f"after:{date_range['after']}")
+            if date_range.get("before"):
+                parts.append(f"before:{date_range['before']}")
+            date_filter = " ".join(parts)
+        else:
+            date_filter = _build_date_filter(date_range, None)
     if date_filter:
         for platform in queries:
             queries[platform] = [
@@ -727,18 +736,32 @@ def _build_relevance_keywords(
 # ---------------------------------------------------------------------------
 
 
-def _build_date_filter(date_range: str, date_hint: str | None = None) -> str:
-    """Build a Google date filter string."""
+def _build_date_filter(date_range, date_hint: str | None = None) -> str:
+    """Build a Google date filter string.
+
+    Args:
+        date_range: str preset (e.g. "week") or dict {"after": "...", "before": "..."} for custom.
+        date_hint: optional hint like "recent" for trend queries.
+    """
+    if isinstance(date_range, dict):
+        parts = []
+        if date_range.get("after"):
+            parts.append(f"after:{date_range['after']}")
+        if date_range.get("before"):
+            parts.append(f"before:{date_range['before']}")
+        return " ".join(parts)
+
     if date_range == "any" and date_hint != "recent":
         return ""
 
     now = datetime.now()
-    if date_range == "week":
-        after = now - timedelta(days=7)
-    elif date_range == "month":
-        after = now - timedelta(days=30)
-    elif date_range == "year":
-        after = now - timedelta(days=365)
+    days = {
+        "3days": 3, "week": 7, "2weeks": 14, "month": 30,
+        "3months": 90, "6months": 180, "year": 365,
+    }.get(date_range, 0)
+
+    if days:
+        after = now - timedelta(days=days)
     elif date_hint == "recent":
         after = now - timedelta(days=30)
     else:

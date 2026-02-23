@@ -112,21 +112,32 @@ def build_queries(
     return queries
 
 
-def _build_date_filter(date_range: str) -> str:
-    """Build Google date filter string."""
+def _build_date_filter(date_range) -> str:
+    """Build Google date filter string.
+
+    Args:
+        date_range: str preset (e.g. "week") or dict {"after": "...", "before": "..."} for custom.
+    """
+    if isinstance(date_range, dict):
+        parts = []
+        if date_range.get("after"):
+            parts.append(f"after:{date_range['after']}")
+        if date_range.get("before"):
+            parts.append(f"before:{date_range['before']}")
+        return " ".join(parts)
+
     if date_range == "any":
         return ""
 
     now = datetime.now()
-    if date_range == "week":
-        after = now - timedelta(days=7)
-    elif date_range == "month":
-        after = now - timedelta(days=30)
-    elif date_range == "year":
-        after = now - timedelta(days=365)
-    else:
+    days = {
+        "3days": 3, "week": 7, "2weeks": 14, "month": 30,
+        "3months": 90, "6months": 180, "year": 365,
+    }.get(date_range, 0)
+    if not days:
         return ""
 
+    after = now - timedelta(days=days)
     return f"after:{after.strftime('%Y-%m-%d')}"
 
 

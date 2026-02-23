@@ -43,6 +43,7 @@ st.markdown(
 
 # Check tier access
 st.session_state.setdefault("user_tier", "pro")
+st.session_state.setdefault("active_provider", "notebooklm")
 try:
     from config.gating import check_feature
     if not check_feature("one_search"):
@@ -107,8 +108,12 @@ def _strip_operators(query: str) -> str:
     return q
 
 
-def _restore_operators(clean_query: str, platform: str, date_range: str) -> str:
-    """Re-add Google operators to a clean query for actual search execution."""
+def _restore_operators(clean_query: str, platform: str, date_range) -> str:
+    """Re-add Google operators to a clean query for actual search execution.
+
+    Args:
+        date_range: str preset (e.g. "week") or dict {"after": "...", "before": "..."} for custom.
+    """
     site_map = {
         "youtube": "youtube.com",
         "tiktok": "tiktok.com",
@@ -119,10 +124,19 @@ def _restore_operators(clean_query: str, platform: str, date_range: str) -> str:
     parts = [f"site:{site}", clean_query] if site else [clean_query]
 
     # Add date filter
-    if date_range and date_range != "any":
+    if isinstance(date_range, dict):
+        # Custom range with both after and before
+        if date_range.get("after"):
+            parts.append(f"after:{date_range['after']}")
+        if date_range.get("before"):
+            parts.append(f"before:{date_range['before']}")
+    elif date_range and date_range != "any":
         from datetime import datetime, timedelta
         now = datetime.now()
-        days = {"week": 7, "month": 30, "year": 365}.get(date_range, 0)
+        days = {
+            "3days": 3, "week": 7, "2weeks": 14, "month": 30,
+            "3months": 90, "6months": 180, "year": 365,
+        }.get(date_range, 0)
         if days:
             after = (now - timedelta(days=days)).strftime("%Y-%m-%d")
             parts.append(f"after:{after}")
@@ -203,14 +217,42 @@ def _render_input():
                 format_func=str.title,
             )
         with col2:
+            date_range_options = [
+                "any", "3days", "week", "2weeks", "month",
+                "3months", "6months", "year", "custom",
+            ]
+            date_range_labels = {
+                "any": "Any time", "3days": "Past 3 days",
+                "week": "Past week", "2weeks": "Past 2 weeks",
+                "month": "Past month", "3months": "Past 3 months",
+                "6months": "Past 6 months", "year": "Past year",
+                "custom": "Custom range",
+            }
             date_range = st.selectbox(
                 "Date range",
-                ["any", "week", "month", "year"],
-                format_func=lambda x: {
-                    "any": "Any time", "week": "Past week",
-                    "month": "Past month", "year": "Past year",
-                }[x],
+                date_range_options,
+                format_func=lambda x: date_range_labels[x],
             )
+
+        if date_range == "custom":
+            from datetime import datetime, timedelta
+            dc1, dc2 = st.columns(2)
+            with dc1:
+                custom_start = st.date_input(
+                    "Start date",
+                    value=datetime.now().date() - timedelta(days=30),
+                    key="custom_date_start",
+                )
+            with dc2:
+                custom_end = st.date_input(
+                    "End date",
+                    value=datetime.now().date(),
+                    key="custom_date_end",
+                )
+            date_range = {
+                "after": custom_start.strftime("%Y-%m-%d"),
+                "before": custom_end.strftime("%Y-%m-%d"),
+            }
 
         adv1, adv2 = st.columns(2)
         with adv1:
@@ -249,16 +291,7 @@ def _render_input():
             st.warning("Please select at least one platform.")
             return
 
-        # Generate queries
-        with st.spinner("Generating search queries..."):
-            from search.pipeline import step_generate_queries
-            qr = run_async(step_generate_queries(
-                topic=topic.strip(),
-                platforms=platforms,
-                date_range=date_range,
-            ))
-
-        # Initialize workflow state
+        # Initialize workflow state with empty queries — user types their own
         wf = _get_wf()
         wf.update({
             "step": 1,
@@ -268,10 +301,10 @@ def _render_input():
             "max_urls": max_urls,
             "max_comments": max_comments,
             "cookies_map": cookies_map,
-            "queries": qr["queries"],
-            "relevance_keywords": qr["relevance_keywords"],
-            "research_question": qr["research_question"],
-            "hypotheses": qr["hypotheses"],
+            "queries": {p: [] for p in platforms},
+            "relevance_keywords": [],
+            "research_question": "",
+            "hypotheses": [],
             "search_results": {},
             "url_selections": {},
             "result": None,
@@ -295,8 +328,23 @@ def _render_query_review():
             for h in wf["hypotheses"]:
                 st.markdown(f"- {h}")
 
-    st.markdown("#### Edit Search Queries")
-    st.caption("One query per line. Add, remove, or edit freely. Platform targeting and date filters are applied automatically.")
+    st.markdown("#### Search Queries")
+    st.caption("Type your search terms (one per line). Platform targeting and date filters are applied automatically.")
+
+    # "Generate with AI" button to auto-fill queries
+    if st.button("Generate with AI", key="gen_ai_queries"):
+        with st.spinner("Generating search queries with AI..."):
+            from search.pipeline import step_generate_queries
+            qr = run_async(step_generate_queries(
+                topic=wf["topic"],
+                platforms=wf["platforms"],
+                date_range=wf.get("date_range", "any"),
+            ))
+        wf["queries"] = qr["queries"]
+        wf["relevance_keywords"] = qr.get("relevance_keywords", [])
+        wf["research_question"] = qr.get("research_question", "")
+        wf["hypotheses"] = qr.get("hypotheses", [])
+        st.rerun()
 
     # Per-platform text areas — show clean queries (no site:/after: operators)
     edited_clean_queries = {}
