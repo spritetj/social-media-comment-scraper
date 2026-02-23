@@ -204,7 +204,7 @@ async def fetch_initial_data(
                     try:
                         return json.loads(match.group(1))
                     except json.JSONDecodeError:
-                        _progress("Could not load video data")
+                        _progress("Could not load video")
                         return None
                 else:
                     _progress("Could not load video data")
@@ -213,7 +213,7 @@ async def fetch_initial_data(
             if attempt < MAX_RETRIES - 1:
                 await asyncio.sleep(2 ** attempt)
             else:
-                _progress("Could not load video page")
+                _progress("Could not load video")
     return None
 
 
@@ -765,7 +765,7 @@ class YouTubeCommentScraper:
                 video_url, session, progress_fn=self._progress,
             )
             if not initial_data:
-                self._progress("Could not fetch initial page data")
+                self._progress("Could not load video")
                 return []
 
             # Extract video title
@@ -1410,7 +1410,7 @@ class YouTubeCommentScraper:
         input_url = video_url
         video_id = extract_video_id(video_url)
         if not video_id:
-            self._progress(f"Could not extract video ID from: {video_url}")
+            self._progress(f"Invalid YouTube URL: {video_url}")
             return []
 
         # Normalize URL

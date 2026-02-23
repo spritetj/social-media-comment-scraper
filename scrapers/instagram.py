@@ -596,7 +596,7 @@ async def scrape_single_post(
     post_url = normalize_url(url)
     shortcode = extract_shortcode(post_url)
     if not shortcode:
-        _progress(f"Could not extract shortcode from URL: {url}")
+        _progress(f"Invalid Instagram URL: {url}")
         return []
 
     url_type = detect_url_type(post_url)
@@ -627,7 +627,7 @@ async def scrape_single_post(
         _progress("Loading post...")
         html = await fetch_page_html(session, post_url)
         if not html:
-            _progress("Failed to fetch page HTML.")
+            _progress("Could not load post.")
             return []
 
         if "/accounts/login/" in html or "loginForm" in html:

@@ -430,13 +430,13 @@ async def fetch_page_and_tokens(
         )
         result["final_url"] = str(getattr(resp, "url", url))
         if result["redirect_detected"]:
-            _progress(f"Warning: Redirect detected → {result['final_url'][:80]}")
+            _progress(f"Redirected to: {result['final_url'][:80]}")
     except Exception as e:
-        _progress(f"Failed to fetch page: {e}")
+        _progress("Could not load page")
         return result
 
     if not html:
-        _progress("Empty HTML response")
+        _progress("Could not load page content")
         return result
 
     # Page fetched successfully
@@ -515,8 +515,8 @@ async def fetch_page_and_tokens(
 
         if result["feed_page_detected"] and result["feedback_id_strategy"] == "heuristic":
             _progress(
-                f"Warning: Feed page detected ({len(all_fids)} posts). "
-                f"Using heuristic to pick target post — comments may not match."
+                f"This URL contains multiple posts. "
+                f"Comments may not match the intended post."
             )
 
     # Strategy 3: Construct from URL

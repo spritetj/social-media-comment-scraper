@@ -826,8 +826,8 @@ class TikTokCommentScraper:
         # Extract video ID
         video_id = extract_video_id(video_url)
         if not video_id:
-            self._progress(f"Could not extract video ID from: {video_url}")
-            self._progress("URL must contain /video/NUMBERS or /photo/NUMBERS")
+            self._progress(f"Invalid TikTok URL: {video_url}")
+            self._progress("Please provide a valid TikTok video or photo URL")
             return []
 
         self._progress(f"Processing: {video_url}")
