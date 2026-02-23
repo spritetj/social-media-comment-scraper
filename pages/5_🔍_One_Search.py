@@ -366,22 +366,28 @@ def _render_query_review():
             st.rerun()
     with btn_col2:
         if _is_nlm_mode():
-            from ai.notebooklm_bridge import NotebookLMBridge
-            remaining = NotebookLMBridge.queries_remaining()
+            try:
+                from ai.notebooklm_bridge import NotebookLMBridge
+                remaining = NotebookLMBridge.queries_remaining()
+            except Exception:
+                remaining = 0
             nlm_disabled = remaining <= 0
             nlm_label = "Smart Suggest (NotebookLM)" if remaining > 5 else f"Smart Suggest ({remaining} left)"
             if st.button(nlm_label, key="gen_nlm_queries", use_container_width=True, disabled=nlm_disabled):
                 if remaining <= 0:
                     st.warning("Daily query limit reached. Try again tomorrow.")
                 else:
-                    with st.spinner("Getting smart suggestions from NotebookLM..."):
-                        from search.pipeline import step_generate_queries_nlm
-                        qr = run_async(step_generate_queries_nlm(
-                            topic=wf["topic"],
-                            platforms=wf["platforms"],
-                        ))
-                    wf["queries"] = qr["queries"]
-                    st.rerun()
+                    try:
+                        with st.spinner("Getting smart suggestions from NotebookLM..."):
+                            from search.pipeline import step_generate_queries_nlm
+                            qr = run_async(step_generate_queries_nlm(
+                                topic=wf["topic"],
+                                platforms=wf["platforms"],
+                            ))
+                        wf["queries"] = qr["queries"]
+                        st.rerun()
+                    except Exception as e:
+                        st.warning(f"Smart Suggest unavailable: {e}")
 
     # Per-platform text areas — show clean queries (no site:/after: operators)
     edited_clean_queries = {}
