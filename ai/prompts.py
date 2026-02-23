@@ -380,26 +380,39 @@ def format_comments_for_prompt(comments: list[dict]) -> str:
     suitable for inclusion in an LLM prompt.
 
     Expects dicts with at least a ``text`` key (as produced by
-    ``utils.schema.to_clean``).  Username, likes, date are included
-    when available for richer context.
+    ``utils.schema.to_clean``).  Username, likes, date, and post/video
+    caption (content_title) are included when available for richer context.
+    Comments are grouped by content_title so the LLM can see which
+    post/video each comment belongs to.
     """
+    # Group by content_title for context
+    by_content: dict[str, list[dict]] = {}
+    for c in comments:
+        ct = c.get("content_title", "").strip() or ""
+        by_content.setdefault(ct, []).append(c)
+
     lines: list[str] = []
-    for i, c in enumerate(comments, 1):
-        text = c.get("text", "").strip()
-        if not text:
-            continue
-        username = c.get("username", "Anonymous")
-        likes = c.get("likes", 0)
-        date = c.get("date", "")
-        is_reply = c.get("is_reply", False)
-        prefix = "  [reply] " if is_reply else ""
-        meta_parts = []
-        if likes:
-            meta_parts.append(f"{likes} likes")
-        if date:
-            meta_parts.append(str(date))
-        meta = f" ({', '.join(meta_parts)})" if meta_parts else ""
-        lines.append(f"{i}. {prefix}@{username}{meta}: {text}")
+    i = 0
+    for content_title, group in by_content.items():
+        if content_title:
+            lines.append(f"\n[Post/Video: \"{content_title[:200]}\"]")
+        for c in group:
+            text = c.get("text", "").strip()
+            if not text:
+                continue
+            i += 1
+            username = c.get("username", "Anonymous")
+            likes = c.get("likes", 0)
+            date = c.get("date", "")
+            is_reply = c.get("is_reply", False)
+            prefix = "  [reply] " if is_reply else ""
+            meta_parts = []
+            if likes:
+                meta_parts.append(f"{likes} likes")
+            if date:
+                meta_parts.append(str(date))
+            meta = f" ({', '.join(meta_parts)})" if meta_parts else ""
+            lines.append(f"{i}. {prefix}@{username}{meta}: {text}")
     return "\n".join(lines)
 
 

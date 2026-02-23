@@ -137,10 +137,10 @@ if scrape_btn and url_input.strip():
         import pandas as pd
         if clean_mode:
             df = pd.DataFrame(clean_comments)
-            display_cols = ["username", "text", "likes", "replies", "date", "is_reply"]
+            display_cols = ["content_title", "username", "text", "likes", "replies", "date", "is_reply"]
         else:
             df = pd.DataFrame(all_comments)
-            display_cols = ["profileName", "text", "likesCount", "commentsCount", "date", "threadingDepth"]
+            display_cols = ["postCaption", "profileName", "text", "likesCount", "commentsCount", "date", "threadingDepth"]
         available_cols = [c for c in display_cols if c in df.columns]
         st.dataframe(df[available_cols], use_container_width=True, height=400)
 
