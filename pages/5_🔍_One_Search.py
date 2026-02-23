@@ -291,7 +291,7 @@ def _render_input():
             st.warning("Please select at least one platform.")
             return
 
-        # Initialize workflow — pre-fill topic as default query per platform
+        # Initialize workflow
         wf = _get_wf()
         wf.update({
             "step": 1,
@@ -309,6 +309,23 @@ def _render_input():
             "url_selections": {},
             "result": None,
         })
+
+        # Auto-generate queries via NotebookLM if available
+        if _is_nlm_mode():
+            try:
+                from ai.notebooklm_bridge import NotebookLMBridge
+                if NotebookLMBridge.queries_remaining() > 0:
+                    with st.spinner("Generating smart search queries..."):
+                        from search.pipeline import step_generate_queries_nlm
+                        qr = run_async(step_generate_queries_nlm(
+                            topic=topic.strip(),
+                            platforms=platforms,
+                        ))
+                    if any(qr["queries"].values()):
+                        wf["queries"] = qr["queries"]
+            except Exception:
+                pass  # Fall through to default topic-as-query
+
         st.rerun()
 
 

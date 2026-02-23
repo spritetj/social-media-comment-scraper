@@ -634,15 +634,6 @@ async def step_scrape_and_analyze(
 # NLM-powered query generation (via shared notebook)
 # ---------------------------------------------------------------------------
 
-NLM_QUERY_GEN_PROMPT = (
-    "Topic: \"{topic}\"\n"
-    "Platforms: {platforms}\n\n"
-    "Based on your instructions, suggest effective Google search queries "
-    "for finding social media discussions about this topic on each platform. "
-    "Return short search terms only (no explanations), organized by platform name."
-)
-
-
 async def step_generate_queries_nlm(
     topic: str,
     platforms: list[str],
@@ -657,9 +648,11 @@ async def step_generate_queries_nlm(
     from ai.notebooklm_bridge import get_bridge, NotebookLMBridge, QUERY_GEN_NOTEBOOK_ID
 
     bridge = get_bridge()
-    prompt = NLM_QUERY_GEN_PROMPT.format(
-        topic=topic,
-        platforms=", ".join(p.title() for p in platforms),
+
+    prompt = (
+        f'ถ้า users พิมพ์ "{topic}" คำค้นหาบน Google จะเป็นคำอะไรได้บ้าง '
+        'ตอบมาเป็นคำเลยไม่ต้องอธิบาย ถึงแม้ไม่มีแหล่งข้อมูลก็ตาม '
+        'โฟกัสที่คน ค้นหาเป็นคนไทย'
     )
 
     answer, _ = await bridge.ask_question(
@@ -677,11 +670,11 @@ def _parse_nlm_query_response(response: str, platforms: list[str]) -> dict:
 
     Handles:
       - Headers like ## YouTube, **YouTube**, YouTube:
-      - Bullet points (- query, * query) and numbered lists (1. query)
+      - Bullet points (- query, * query, • query) and numbered lists (1. query)
       - Strips Google operators (site:, after:, before:) since they get
         added back by _restore_operators()
+      - Skips intro/explanatory paragraphs NLM may prepend
     """
-    # Normalize platform names for fuzzy matching
     platform_aliases = {
         "youtube": "youtube", "yt": "youtube",
         "tiktok": "tiktok", "tik tok": "tiktok",
@@ -698,21 +691,26 @@ def _parse_nlm_query_response(response: str, platforms: list[str]) -> dict:
         if not stripped:
             continue
 
-        # Try to detect a platform header
-        detected = _detect_platform_header(stripped, platform_aliases, requested)
-        if detected:
-            current_platform = detected
-            continue
+        # Check if line is a bullet/list item FIRST (before header detection)
+        # to avoid misidentifying "• Yoguruto TikTok" as a TikTok header.
+        # Require whitespace after marker to avoid matching **bold** headers.
+        is_bullet = bool(re.match(r'^(?:[-•]\s+|\*\s+|\d+[.)]\s+)', stripped))
 
-        # Extract query from bullet/numbered list item
-        query = _extract_query_text(stripped)
-        if query and current_platform:
-            # Strip Google operators
-            query = _strip_google_operators(query)
-            if query:
-                result[current_platform].append(query)
+        if is_bullet:
+            query = _extract_query_text(stripped)
+            if query and current_platform:
+                query = _strip_google_operators(query)
+                if query:
+                    result[current_platform].append(query)
+        else:
+            # Non-bullet line — check if it's a platform header
+            detected = _detect_platform_header(stripped, platform_aliases, requested)
+            if detected:
+                current_platform = detected
+            # Otherwise skip (intro text, explanations, etc.)
 
-    # Fallback: if no platform sections found, collect all lines and distribute
+    # Fallback: if no platform sections found, collect ALL bullet items
+    # and distribute to all requested platforms
     total_queries = sum(len(v) for v in result.values())
     if total_queries == 0:
         all_queries = []
@@ -733,13 +731,24 @@ def _parse_nlm_query_response(response: str, platforms: list[str]) -> dict:
 def _detect_platform_header(
     line: str, aliases: dict, requested: set[str]
 ) -> str | None:
-    """Detect if a line is a platform section header."""
+    """Detect if a line is a platform section header.
+
+    Only matches short header-like lines (## YouTube, **TikTok**, Facebook:).
+    Skips long lines that happen to contain a platform name.
+    """
+    # Skip lines that are too long to be headers (likely explanatory text)
+    if len(line) > 60:
+        return None
+
     # Remove markdown formatting: ##, **, :
     clean = re.sub(r'^#{1,4}\s*', '', line)
     clean = re.sub(r'\*\*', '', clean)
     clean = clean.rstrip(':').strip().lower()
 
-    # Check against aliases
+    # The cleaned header should be short (just the platform name, maybe a word or two)
+    if len(clean) > 30:
+        return None
+
     for alias, canonical in aliases.items():
         if alias in clean and canonical in requested:
             return canonical
@@ -748,21 +757,20 @@ def _detect_platform_header(
 
 def _extract_query_text(line: str) -> str:
     """Extract query text from a bullet or numbered list line."""
-    # Match: - query, * query, 1. query, 1) query
-    m = re.match(r'^(?:[-*•]\s*|\d+[.)]\s*)', line)
-    if m:
-        text = line[m.end():].strip()
-    else:
-        # Not a list item — skip headers and explanatory text
-        # Only accept lines that look like search queries (short, no sentences)
-        if len(line) > 100 or line.endswith('.') and not re.search(r'\d\.', line):
-            return ""
+    # Match: - query, * query, • query, 1. query, 1) query
+    # Require whitespace after marker to avoid matching **bold** headers.
+    m = re.match(r'^(?:[-•]\s+|\*\s+|\d+[.)]\s+)', line)
+    if not m:
+        return ""
+
+    text = line[m.end():].strip()
+    if not text:
         return ""
 
     # Strip surrounding quotes
-    if text.startswith('"') and text.endswith('"'):
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
         text = text[1:-1].strip()
-    if text.startswith("'") and text.endswith("'"):
+    elif len(text) >= 2 and text[0] == "'" and text[-1] == "'":
         text = text[1:-1].strip()
 
     # Strip trailing explanations after — or --(space) or (...)
