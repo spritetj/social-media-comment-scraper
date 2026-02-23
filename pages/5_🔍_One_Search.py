@@ -609,14 +609,68 @@ def _render_pipeline_details(result: dict):
         with tab3:
             scrape_log = result.get("scrape_log", [])
             if scrape_log:
-                df_log = pd.DataFrame(scrape_log)
                 ok_count = sum(1 for s in scrape_log if s["status"] == "ok")
                 empty_count = sum(1 for s in scrape_log if s["status"] == "empty")
                 total_scraped_comments = sum(s["comment_count"] for s in scrape_log)
-                m1, m2, m3 = st.columns(3)
+                suspect_count = sum(
+                    1 for s in scrape_log
+                    if not s.get("content_match", True) and s["status"] == "ok"
+                )
+
+                m1, m2, m3, m4 = st.columns(4)
                 m1.metric("URLs with comments", ok_count)
                 m2.metric("Empty URLs", empty_count)
                 m3.metric("Total comments", total_scraped_comments)
+                if suspect_count > 0:
+                    m4.metric("Suspect URLs", suspect_count)
+                else:
+                    m4.metric("Suspect URLs", 0)
+
+                # Warning banner for mismatched content
+                topic = result.get("topic", "") or _get_wf().get("topic", "")
+                mismatched = [
+                    s for s in scrape_log
+                    if not s.get("content_match", True) and s["status"] == "ok"
+                ]
+                if mismatched:
+                    st.warning(
+                        f"**{len(mismatched)} URL(s) may contain wrong content** "
+                        f"(not matching topic \"{topic}\"). "
+                        f"Comments from these URLs may be unrelated."
+                    )
+                    for entry in mismatched:
+                        ct = entry.get("content_title", "") or "(no caption detected)"
+                        warnings_list = entry.get("warnings", [])
+                        warn_text = " | ".join(warnings_list) if warnings_list else ""
+                        st.markdown(
+                            f'<div style="border:1px solid #F87171;border-radius:8px;'
+                            f'padding:8px 12px;margin:4px 0;background:rgba(248,113,113,0.05)">'
+                            f'<div style="font-size:0.8rem;color:#F87171;font-weight:600">'
+                            f'SUSPECT</div>'
+                            f'<div style="font-size:0.82rem;margin-top:2px">'
+                            f'<a href="{entry["url"]}" style="color:#60A5FA">'
+                            f'{entry["url"][:80]}...</a></div>'
+                            f'<div style="font-size:0.8rem;color:#94A3B8;margin-top:2px">'
+                            f'Actual content: {ct[:120]}</div>'
+                            f'{"<div style=font-size:0.75rem;color:#FBBF24;margin-top:2px>" + warn_text + "</div>" if warn_text else ""}'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                # Build display dataframe with enhanced columns
+                display_rows = []
+                for s in scrape_log:
+                    is_match = s.get("content_match", True)
+                    display_rows.append({
+                        "platform": s["platform"],
+                        "url": s["url"],
+                        "title": s.get("title", ""),
+                        "content_title": s.get("content_title", ""),
+                        "comment_count": s["comment_count"],
+                        "status": s["status"],
+                        "match_status": "OK" if is_match else "SUSPECT",
+                    })
+                df_log = pd.DataFrame(display_rows)
 
                 st.dataframe(
                     df_log,
@@ -624,8 +678,10 @@ def _render_pipeline_details(result: dict):
                         "platform": st.column_config.TextColumn("Platform", width="small"),
                         "url": st.column_config.LinkColumn("URL", width="large"),
                         "title": st.column_config.TextColumn("Title", width="medium"),
+                        "content_title": st.column_config.TextColumn("Actual Content", width="medium"),
                         "comment_count": st.column_config.NumberColumn("Comments", width="small"),
                         "status": st.column_config.TextColumn("Status", width="small"),
+                        "match_status": st.column_config.TextColumn("Match", width="small"),
                     },
                     use_container_width=True,
                     hide_index=True,
@@ -1091,10 +1147,9 @@ def _regenerate_insight(wf: dict, result: dict):
 
 
 def _run_notebooklm_analysis(wf: dict, result: dict):
-    """Execute automated NotebookLM analysis: create notebook, upload, query, cleanup."""
+    """Execute automated NotebookLM toolkit analysis: 10 deep research queries."""
     from ai.notebooklm_bridge import get_bridge, NotebookLMBridge
-    from ai.notebooklm_queries import get_analysis_queries
-    from ai.notebooklm_parser import compose_customer_insight, insight_to_tag_summary
+    from ai.toolkit_queries import get_toolkit_queries
     from utils.notebooklm_export import export_comments_markdown
 
     comments = result.get("comments_clean", [])
@@ -1104,15 +1159,8 @@ def _run_notebooklm_analysis(wf: dict, result: dict):
     topic = wf.get("topic", "")
     platforms = wf.get("platforms", [])
 
-    # Check query budget
-    queries = get_analysis_queries(topic, len(comments), platforms)
-    remaining = NotebookLMBridge.queries_remaining()
-    if len(queries) > remaining:
-        st.warning(
-            f"Not enough NotebookLM queries remaining ({remaining} left, need {len(queries)}). "
-            "Skipping AI analysis. Switch to Paid API in Settings or try again tomorrow."
-        )
-        return
+    # Build toolkit queries (always 10)
+    queries = get_toolkit_queries(topic, len(comments), platforms)
 
     # Build comments markdown
     comments_md = export_comments_markdown(comments, topic, platforms)
@@ -1145,20 +1193,11 @@ def _run_notebooklm_analysis(wf: dict, result: dict):
 
     progress.progress(1.0, text="Analysis complete!")
 
-    # Compose the customer insight
+    # Store raw toolkit results (dict of query_id → markdown)
     if any(parsed_results.values()):
-        insight = compose_customer_insight(parsed_results)
-        result["customer_insight"] = insight
-
-        # Reconstruct tag_summary for heatmap
-        tag_summary = insight_to_tag_summary(insight)
-        if tag_summary:
-            existing = result.get("tag_summary", {})
-            existing["aspect_sentiment"] = tag_summary.get("aspect_sentiment", {})
-            result["tag_summary"] = existing
-
+        result["toolkit_results"] = parsed_results
         wf["result"] = result
-        st.success(f"NotebookLM analysis complete! Used {len(queries)} queries.")
+        st.success(f"Toolkit analysis complete! Used {len(queries)} queries.")
     else:
         st.warning("NotebookLM analysis returned no results. Results will show without AI analysis.")
 
@@ -1180,7 +1219,7 @@ def _render_results():
     total = result.get("total_comments", 0)
 
     if total > 0:
-        # Platform breakdown
+        # 1. Results Summary (platform metrics) — unchanged
         st.markdown("### Results Summary")
         raw_by_platform = result.get("comments_raw", {})
         platforms = wf["platforms"]
@@ -1198,29 +1237,51 @@ def _render_results():
             "count": len(clean_comments),
         }
 
-        # --- AI Customer Insight Report (prominent, at top) ---
+        # 2. Python Stats Report — always shown when analysis exists
+        analysis = result.get("analysis")
+        if analysis:
+            try:
+                from utils.stats_report import compose_stats_report, render_stats_report
+                stats_report = compose_stats_report(analysis)
+                if stats_report:
+                    st.markdown("---")
+                    render_stats_report(stats_report)
+            except Exception:
+                pass
+
+        # 3. Toolkit Report OR Legacy AI Report
+        toolkit_results = result.get("toolkit_results")
         customer_insight = result.get("customer_insight")
-        if customer_insight:
+
+        if toolkit_results:
+            # Toolkit report (10 tabs from NotebookLM toolkit)
+            st.markdown("---")
+            from ai.toolkit_renderer import render_toolkit_report
+            render_toolkit_report(toolkit_results, wf["topic"])
+
+            # Re-analyze button
+            if st.button("Re-analyze with NotebookLM", key="regen_insight"):
+                with st.spinner("Re-running toolkit analysis (10 queries)..."):
+                    _run_notebooklm_analysis(wf, result)
+                    st.rerun()
+
+        elif customer_insight:
+            # Legacy AI report (from paid API path)
             _render_customer_insight(customer_insight, wf["topic"])
-            # Regenerate button
-            if _is_nlm_mode():
-                if st.button("Re-analyze with NotebookLM", key="regen_insight"):
-                    with st.spinner("Re-running NotebookLM analysis..."):
-                        _run_notebooklm_analysis(wf, result)
-                        st.rerun()
-            elif st.button("Regenerate AI Report", key="regen_insight"):
+            if st.button("Regenerate AI Report", key="regen_insight"):
                 with st.spinner("Regenerating AI Customer Insight Report..."):
                     try:
                         _regenerate_insight(wf, result)
                         st.rerun()
                     except Exception as e:
                         st.error(f"Regeneration failed: {e}")
-        elif not customer_insight and clean_comments:
-            # Show a button to generate if it wasn't auto-generated
+
+        elif clean_comments:
+            # No report yet — show generate button
             st.markdown("---")
             if _is_nlm_mode():
-                if st.button("Generate Report via NotebookLM", type="primary", key="gen_insight_nlm"):
-                    with st.spinner("Running NotebookLM analysis..."):
+                if st.button("Generate Toolkit Report via NotebookLM", type="primary", key="gen_insight_nlm"):
+                    with st.spinner("Running toolkit analysis (10 queries)..."):
                         _run_notebooklm_analysis(wf, result)
                         st.rerun()
             elif st.button("Generate AI Customer Insight Report", type="primary", key="gen_insight"):
@@ -1231,16 +1292,16 @@ def _render_results():
                     except Exception as e:
                         st.error(f"Generation failed: {e}")
 
-        # --- Cross-Platform Comparison (if 2+ platforms) ---
+        # 4. Cross-Platform Comparison — unchanged
         _render_cross_platform(result)
 
-        # --- Aspect-Based Sentiment Heatmap (if tags available) ---
+        # 5. Aspect-Based Sentiment Heatmap — unchanged (uses VADER tags)
         _render_aspect_heatmap(result)
 
-        # --- Smart Comment Explorer ---
+        # 6. Comment Explorer — unchanged
         _render_comment_explorer(result, wf)
 
-        # Download buttons
+        # 7. Downloads — unchanged
         st.markdown("")
         dl1, dl2 = st.columns(2)
         with dl1:
@@ -1260,17 +1321,8 @@ def _render_results():
                 use_container_width=True,
             )
 
-        # Pipeline transparency
+        # 8. Pipeline Details — unchanged
         _render_pipeline_details(result)
-
-        # Analysis dashboard (VADER + LDA — fallback / supplementary)
-        analysis = result.get("analysis")
-        if analysis:
-            try:
-                from utils.analysis_ui import render_analysis_dashboard
-                render_analysis_dashboard(analysis)
-            except ImportError:
-                pass
 
     else:
         st.info(

@@ -424,6 +424,13 @@ async def fetch_page_and_tokens(
             timeout=30,
         )
         html = resp.text
+        # Detect redirects
+        result["redirect_detected"] = len(getattr(resp, "redirect_url", "") or "") > 0 or (
+            hasattr(resp, "history") and len(resp.history) > 0
+        )
+        result["final_url"] = str(getattr(resp, "url", url))
+        if result["redirect_detected"]:
+            _progress(f"Warning: Redirect detected → {result['final_url'][:80]}")
     except Exception as e:
         _progress(f"Failed to fetch page: {e}")
         return result
@@ -475,10 +482,16 @@ async def fetch_page_and_tokens(
     # Strategy 1: URL match
     decoded_fids = [(fid, decode_fb_id(fid)) for fid in all_fids]
 
+    # Track feedback_id metadata
+    result["total_feedback_ids"] = len(all_fids)
+    result["feed_page_detected"] = len(all_fids) > 5
+    result["feedback_id_strategy"] = "none"
+
     if url_id_reliable and url_post_id:
         for fid, decoded in decoded_fids:
             if decoded == f"feedback:{url_post_id}":
                 result["feedback_id"] = fid
+                result["feedback_id_strategy"] = "url_match"
                 break
 
     # Strategy 2: Heuristic
@@ -495,12 +508,21 @@ async def fetch_page_and_tokens(
                     best_count = count
                     best_fid = fid
             result["feedback_id"] = best_fid or top_level[0][0]
+            result["feedback_id_strategy"] = "heuristic"
         elif all_fids:
             result["feedback_id"] = all_fids[0]
+            result["feedback_id_strategy"] = "heuristic"
+
+        if result["feed_page_detected"] and result["feedback_id_strategy"] == "heuristic":
+            _progress(
+                f"Warning: Feed page detected ({len(all_fids)} posts). "
+                f"Using heuristic to pick target post — comments may not match."
+            )
 
     # Strategy 3: Construct from URL
     if not result["feedback_id"] and url_post_id and url_type == "post":
         result["feedback_id"] = build_feedback_id(url_post_id)
+        result["feedback_id_strategy"] = "constructed"
 
     # Parse initial comments and expansion tokens from embedded JSON scripts
     script_pattern = re.compile(
@@ -961,6 +983,17 @@ async def scrape_comments_fast(
     formatted = []
     for node in all_comments:
         formatted.append(format_comment(node, post_url, post_url, post_caption=post_caption))
+
+    # Inject scrape metadata into each comment for downstream validation
+    scrape_meta = {
+        "_redirect_detected": tokens.get("redirect_detected", False),
+        "_final_url": tokens.get("final_url", ""),
+        "_feedback_id_strategy": tokens.get("feedback_id_strategy", ""),
+        "_feed_page_detected": tokens.get("feed_page_detected", False),
+        "_total_feedback_ids": tokens.get("total_feedback_ids", 0),
+    }
+    for comment in formatted:
+        comment.update(scrape_meta)
 
     elapsed = time.time() - start_time
     top_level = sum(1 for c in formatted if c.get("threadingDepth", 0) == 0)

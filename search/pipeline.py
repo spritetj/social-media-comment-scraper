@@ -9,12 +9,172 @@ Provides both:
 """
 
 import asyncio
+import re
 from collections import Counter
 
 from search.query_builder import build_queries, extract_urls_from_results
 from search.google_search import search_multi_queries
 from search.orchestrator import scrape_all_platforms
 from utils.schema import normalize_comments
+
+
+# ---------------------------------------------------------------------------
+# Content-topic matching (Layer 3 validation)
+# ---------------------------------------------------------------------------
+
+# Common stop words to ignore when matching content to topic
+_STOP_WORDS = frozenset({
+    # English
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+    "in", "on", "at", "to", "for", "of", "with", "by", "from", "as",
+    "and", "or", "but", "not", "no", "it", "this", "that", "my", "your",
+    "we", "they", "he", "she", "do", "does", "did", "will", "would",
+    "can", "could", "should", "may", "might", "have", "has", "had",
+    "about", "how", "what", "when", "where", "who", "which", "why",
+    # Thai particles
+    "จาก", "ของ", "ที่", "ใน", "และ", "หรือ", "แต่", "ก็", "ได้",
+    "ไม่", "มี", "เป็น", "กับ", "แล้ว", "ยัง", "ไป", "มา", "อยู่",
+    "คือ", "นี้", "นั้น", "ให้", "กัน", "จะ", "ว่า",
+})
+
+
+def _content_matches_topic(content_title: str, topic: str) -> tuple[bool, float]:
+    """Check if scraped content_title matches the search topic.
+
+    Uses simple token overlap. Handles mixed Thai/English via space-split.
+
+    Returns:
+        (is_match, score) where score is the fraction of topic tokens found.
+        Empty content_title → (True, 0.0) because we can't verify.
+    """
+    if not content_title or not content_title.strip():
+        return True, 0.0
+    if not topic or not topic.strip():
+        return True, 0.0
+
+    def _tokenize(text: str) -> set[str]:
+        tokens = re.split(r'\s+', text.lower().strip())
+        return {t for t in tokens if len(t) >= 2 and t not in _STOP_WORDS}
+
+    topic_tokens = _tokenize(topic)
+    if not topic_tokens:
+        return True, 0.0
+
+    content_tokens = _tokenize(content_title)
+    matched = topic_tokens & content_tokens
+    score = len(matched) / len(topic_tokens)
+    return score >= 0.3, score
+
+
+# Platform-specific field names for extracting post content info
+_CONTENT_TITLE_FIELDS = {
+    "facebook": "postCaption",
+    "youtube": "videoTitle",
+    "tiktok": "video_caption",
+    "instagram": "captionText",
+}
+
+_SOURCE_URL_FIELDS = {
+    "facebook": "facebookUrl",
+    "youtube": "youtubeUrl",
+    "tiktok": "tiktokUrl",
+    "instagram": "instagramUrl",
+}
+
+
+def _build_enhanced_scrape_log(
+    url_map: dict,
+    all_clean: list[dict],
+    raw_comments: dict,
+    topic: str,
+    url_titles: dict | None = None,
+) -> list[dict]:
+    """Build scrape log with content validation and warnings.
+
+    Args:
+        url_map: {platform: [urls]} or {platform: [{url, title}]}
+        all_clean: normalized comments
+        raw_comments: {platform: [raw_comment_dicts]} from scrapers
+        topic: original search topic
+        url_titles: optional {url: google_search_title} lookup
+
+    Returns:
+        List of enhanced scrape_log entries.
+    """
+    url_titles = url_titles or {}
+
+    # Count normalized comments per source_url
+    url_comment_counts = Counter(
+        c.get("source_url", "") for c in all_clean if c.get("source_url")
+    )
+
+    # Extract content titles and scrape warnings from raw comments per URL
+    url_content_titles: dict[str, str] = {}
+    url_warnings: dict[str, list[str]] = {}
+
+    for platform, comments in raw_comments.items():
+        title_field = _CONTENT_TITLE_FIELDS.get(platform, "")
+        url_field = _SOURCE_URL_FIELDS.get(platform, "")
+
+        for c in comments:
+            if not isinstance(c, dict):
+                continue
+
+            src_url = c.get(url_field, "") or c.get("inputUrl", "") or c.get("source_url", "")
+            if not src_url:
+                continue
+
+            # Extract content title (take first non-empty)
+            if src_url not in url_content_titles and title_field:
+                ct = c.get(title_field, "")
+                if ct and isinstance(ct, str) and ct.strip():
+                    url_content_titles[src_url] = ct.strip()[:200]
+
+            # Extract Facebook scrape warnings
+            if platform == "facebook" and src_url not in url_warnings:
+                warnings = []
+                if c.get("_redirect_detected"):
+                    final = c.get("_final_url", "")
+                    warnings.append(f"Redirect detected → {final[:60]}")
+                if c.get("_feed_page_detected"):
+                    n = c.get("_total_feedback_ids", 0)
+                    warnings.append(f"Feed page detected ({n} posts)")
+                strategy = c.get("_feedback_id_strategy", "")
+                if strategy == "heuristic" and c.get("_feed_page_detected"):
+                    warnings.append("Post selected by heuristic (may be wrong)")
+                if warnings:
+                    url_warnings[src_url] = warnings
+
+    # Build log entries
+    scrape_log = []
+    for platform, urls_or_details in url_map.items():
+        for item in urls_or_details:
+            if isinstance(item, dict):
+                url = item.get("url", "")
+                google_title = item.get("title", "")
+            else:
+                url = item
+                google_title = url_titles.get(url, "")
+
+            count = url_comment_counts.get(url, 0)
+            content_title = url_content_titles.get(url, "")
+            warnings = url_warnings.get(url, [])
+
+            # Content match validation
+            content_match, match_score = _content_matches_topic(content_title, topic)
+
+            scrape_log.append({
+                "platform": platform,
+                "url": url,
+                "title": google_title,
+                "content_title": content_title,
+                "comment_count": count,
+                "status": "ok" if count > 0 else "empty",
+                "warnings": warnings,
+                "content_match": content_match,
+            })
+
+    return scrape_log
 
 
 async def run_one_search(
@@ -164,21 +324,13 @@ async def run_one_search(
         1 for urls in url_map.values() for _ in urls
     )
 
-    # Build scrape log: per-URL outcome
-    from collections import Counter
-    url_comment_counts = Counter(c.get("source_url", "") for c in all_clean if c.get("source_url"))
-    scrape_log = []
-    for platform, details in url_map_detail.items():
-        for d in details:
-            count = url_comment_counts.get(d["url"], 0)
-            scrape_log.append({
-                "platform": platform,
-                "url": d["url"],
-                "title": d["title"],
-                "comment_count": count,
-                "status": "ok" if count > 0 else "empty",
-            })
-    result["scrape_log"] = scrape_log
+    # Build enhanced scrape log with content validation
+    result["scrape_log"] = _build_enhanced_scrape_log(
+        url_map=url_map_detail,
+        all_clean=all_clean,
+        raw_comments=raw_comments,
+        topic=topic,
+    )
 
     if progress_callback:
         progress_callback(f"Collected {len(all_clean)} total comments")
@@ -375,22 +527,13 @@ async def step_scrape_and_analyze(
     result["total_comments"] = len(all_clean)
     result["total_urls_scraped"] = total_urls
 
-    # Build scrape log
-    url_comment_counts = Counter(
-        c.get("source_url", "") for c in all_clean if c.get("source_url")
+    # Build enhanced scrape log with content validation
+    result["scrape_log"] = _build_enhanced_scrape_log(
+        url_map={p: urls for p, urls in url_map.items()},
+        all_clean=all_clean,
+        raw_comments=raw_comments,
+        topic=topic,
     )
-    scrape_log = []
-    for platform, urls in url_map.items():
-        for url in urls:
-            count = url_comment_counts.get(url, 0)
-            scrape_log.append({
-                "platform": platform,
-                "url": url,
-                "title": "",
-                "comment_count": count,
-                "status": "ok" if count > 0 else "empty",
-            })
-    result["scrape_log"] = scrape_log
 
     if progress_callback:
         progress_callback(f"Collected {len(all_clean)} total comments")

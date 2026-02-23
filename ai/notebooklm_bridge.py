@@ -203,6 +203,10 @@ class NotebookLMBridge:
                     logger.warning("Query '%s' failed: %s", qid, e)
                     parsed_results[qid] = ""
 
+                # Rate-limit pause between queries (important for 10-query runs)
+                if i < len(queries) - 1:
+                    await asyncio.sleep(2)
+
             if progress_cb:
                 progress_cb(1.0, "Analysis complete!")
 

@@ -193,10 +193,11 @@ def _normalize_url(url: str, platform: str) -> str:
         return ""
 
     if platform == "facebook":
-        if "/posts/" in url or "/reel/" in url or "/videos/" in url or "/watch" in url:
-            return base
-        # Also accept general Facebook page/group URLs for comment scraping
-        if "facebook.com/" in url and url != f"https://www.{platform}.com/":
+        post_indicators = [
+            "/posts/", "/reel/", "/videos/", "/watch",
+            "/photo", "/permalink/", "story_fbid=", "fbid=",
+        ]
+        if any(indicator in url for indicator in post_indicators):
             return base
         return ""
 
