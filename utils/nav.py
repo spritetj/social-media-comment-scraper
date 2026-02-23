@@ -13,7 +13,6 @@ PAGES = [
     ("pages/3_📘_Facebook.py", "Facebook"),
     ("pages/4_📷_Instagram.py", "Instagram"),
     ("pages/5_🔍_One_Search.py", "One Search"),
-    ("pages/6_📊_Analysis.py", "Analysis"),
     ("pages/7_⚙️_Settings.py", "Settings"),
 ]
 
