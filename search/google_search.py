@@ -326,13 +326,24 @@ def _extract_relevance_keywords(topic: str) -> list[str]:
     """Extract brand/entity keywords from topic for relevance filtering.
 
     Returns lowercase keywords that results must match against.
+    Handles both English and Thai words.
     """
+    keywords = []
+
     # English words (3+ chars, likely brand names)
     en_words = re.findall(r'[A-Za-z][A-Za-z0-9]{2,}', topic)
     en_stop = {"the", "and", "for", "how", "why", "what", "this", "that",
                "from", "with", "about", "does", "not", "but", "are", "was"}
-    keywords = [w.lower() for w in en_words if w.lower() not in en_stop]
-    # If no English keywords, use the whole topic (simple topic case)
+    keywords.extend(w.lower() for w in en_words if w.lower() not in en_stop)
+
+    # Thai character runs (2+ chars)
+    thai_words = re.findall(r'[\u0E00-\u0E7F]{2,}', topic)
+    thai_stop = {"จาก", "ของ", "ที่", "ใน", "และ", "หรือ", "แต่", "ก็", "ได้",
+                 "ไม่", "มี", "เป็น", "กับ", "แล้ว", "ยัง", "ไป", "มา", "อยู่",
+                 "คือ", "นี้", "นั้น", "ให้", "กัน", "จะ", "ว่า"}
+    keywords.extend(w for w in thai_words if w not in thai_stop)
+
+    # Fallback: use the whole topic
     if not keywords:
         keywords = [topic.lower().strip()]
     return keywords

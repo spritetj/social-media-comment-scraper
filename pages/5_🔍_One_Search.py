@@ -291,7 +291,7 @@ def _render_input():
             st.warning("Please select at least one platform.")
             return
 
-        # Initialize workflow state with empty queries — user types their own
+        # Initialize workflow — pre-fill topic as default query per platform
         wf = _get_wf()
         wf.update({
             "step": 1,
@@ -301,7 +301,7 @@ def _render_input():
             "max_urls": max_urls,
             "max_comments": max_comments,
             "cookies_map": cookies_map,
-            "queries": {p: [] for p in platforms},
+            "queries": {p: [topic.strip()] for p in platforms},
             "relevance_keywords": [],
             "research_question": "",
             "hypotheses": [],
