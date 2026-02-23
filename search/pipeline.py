@@ -767,6 +767,12 @@ def _extract_query_text(line: str) -> str:
     if not text:
         return ""
 
+    # Strip markdown bold markers: **text** → text
+    text = text.replace("**", "")
+
+    # Strip NLM citation brackets: [1], [1-3], [1, 3], [1, 2, 3]
+    text = re.sub(r'\s*\[[\d,\s–-]+\]', '', text)
+
     # Strip surrounding quotes
     if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
         text = text[1:-1].strip()
