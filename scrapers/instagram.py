@@ -573,6 +573,102 @@ async def graphql_query(
     except Exception as e:
         return {"__error": True, "message": str(e)}
 
+async def fetch_media_via_graphql(
+    session: aiohttp.ClientSession,
+    shortcode: str,
+    csrf_token: str,
+) -> dict | None:
+    """Fetch post media info + initial comments via GraphQL.
+
+    Returns a dict compatible with the legacy ``shortcode_media`` format
+    used by the rest of the scraper, or *None* on failure.
+    """
+    for doc_id in GRAPHQL_DOC_IDS:
+        result = await graphql_query(
+            session, doc_id,
+            {"shortcode": shortcode, "first": 50},
+            csrf_token,
+        )
+        if not result or result.get("__error"):
+            continue
+        media = (
+            find_key_recursive(result, "xdt_shortcode_media")
+            or find_key_recursive(result, "shortcode_media")
+        )
+        if not media or not isinstance(media, dict) or not media.get("id"):
+            continue
+
+        ce = (
+            media.get("edge_media_to_parent_comment")
+            or media.get("edge_media_to_comment")
+            or {}
+        )
+        edges = []
+        for e in ce.get("edges", []):
+            n = e.get("node", {})
+            edge_owner = n.get("owner") or n.get("user") or {}
+            reply_edges = []
+            threaded = n.get("edge_threaded_comments") or {}
+            for re_edge in threaded.get("edges", []):
+                rn = re_edge.get("node", {})
+                rowner = rn.get("owner") or rn.get("user") or {}
+                reply_edges.append({
+                    "id": rn.get("id"),
+                    "text": rn.get("text", ""),
+                    "created_at": rn.get("created_at", 0),
+                    "username": rowner.get("username", ""),
+                    "user_id": rowner.get("id", ""),
+                    "is_verified": rowner.get("is_verified", False),
+                    "profile_pic_url": rowner.get("profile_pic_url", ""),
+                    "likes": (
+                        rn.get("edge_liked_by", {}).get("count", 0)
+                        if isinstance(rn.get("edge_liked_by"), dict)
+                        else rn.get("comment_like_count", 0)
+                    ),
+                })
+            edges.append({
+                "id": n.get("id"),
+                "text": n.get("text", ""),
+                "created_at": n.get("created_at", 0),
+                "username": edge_owner.get("username", ""),
+                "user_id": edge_owner.get("id", ""),
+                "is_verified": edge_owner.get("is_verified", False),
+                "profile_pic_url": edge_owner.get("profile_pic_url", ""),
+                "likes": (
+                    n.get("edge_liked_by", {}).get("count", 0)
+                    if isinstance(n.get("edge_liked_by"), dict)
+                    else n.get("comment_like_count", 0)
+                ),
+                "replies_count": (
+                    threaded.get("count", 0)
+                    if isinstance(threaded, dict)
+                    else n.get("child_comment_count", 0)
+                ),
+                "reply_edges": reply_edges,
+            })
+        ce_page_info = ce.get("page_info") or {}
+
+        # Extract caption
+        caption_text = ""
+        cap = media.get("edge_media_to_caption", {})
+        if isinstance(cap, dict):
+            cap_edges = cap.get("edges", [])
+            if cap_edges:
+                caption_text = cap_edges[0].get("node", {}).get("text", "")
+
+        return {
+            "id": media["id"],
+            "shortcode": media.get("shortcode"),
+            "typename": media.get("__typename"),
+            "comment_count": ce.get("count", 0),
+            "has_next_page": ce_page_info.get("has_next_page", False),
+            "end_cursor": ce_page_info.get("end_cursor"),
+            "edges": edges,
+            "caption_text": caption_text,
+        }
+    return None
+
+
 # ──────────────────────────────────────────────
 # Single Post Scraper
 # ──────────────────────────────────────────────
@@ -644,17 +740,23 @@ async def scrape_single_post(
         comments_conn = relay_data.get("comments")
         shortcode_media = relay_data.get("shortcode_media")
 
-        if not web_info and not comments_conn and not shortcode_media:
-            script_tags = len(re.findall(r'<script\s+type="application/json"', html))
-            _progress(
-                f"No data found in HTML (length={len(html)}, "
-                f"json script tags={script_tags}). "
-                "The page may require login or the format has changed."
-            )
         total_comment_count = 0
         has_more_comments = False
         end_cursor = None
         caption_text = ""
+
+        if not web_info and not comments_conn and not shortcode_media:
+            _progress("No embedded data in HTML, trying GraphQL API...")
+            shortcode_media = await fetch_media_via_graphql(
+                session, shortcode, csrf_token,
+            )
+            if not shortcode_media:
+                script_tags = len(re.findall(r'<script\s+type="application/json"', html))
+                _progress(
+                    f"No data found (HTML length={len(html)}, "
+                    f"json script tags={script_tags}). "
+                    "The page may require login or the format has changed."
+                )
 
         if web_info:
             caption_text = web_info.get("caption_text", "")
@@ -694,10 +796,13 @@ async def scrape_single_post(
             has_more_comments = comments_conn.get("has_next_page", False)
             end_cursor = comments_conn.get("end_cursor")
 
-        # Legacy format
+        # Legacy format (also used by GraphQL fallback)
         elif shortcode_media:
             total_comment_count = shortcode_media.get("comment_count", 0) or 0
             media_pk = shortcode_media.get("id")
+            if not caption_text:
+                caption_text = shortcode_media.get("caption_text", "")
+            _progress(f"Found post with {total_comment_count} comments")
             for edge in shortcode_media.get("edges", []):
                 comment = format_comment_v1(
                     {
