@@ -13,7 +13,6 @@ Two-tier approach:
 
 import asyncio
 import json
-import os
 import random
 import re
 from datetime import datetime, timezone
@@ -24,10 +23,9 @@ import aiohttp
 # Constants & Config
 # ──────────────────────────────────────────────
 
-CHROME_VERSION = "133"
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    f"AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{CHROME_VERSION}.0.0.0 Safari/537.36"
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 )
 
 DEFAULT_IG_APP_ID = "936619743392459"
@@ -41,43 +39,6 @@ GRAPHQL_DOC_IDS = [
     "7803498539768460",
     "9064463823609386",
 ]
-
-
-def _get_proxy() -> str | None:
-    """Return proxy URL from Streamlit secrets or env var, or None."""
-    try:
-        import streamlit as st
-        proxy = st.secrets.get("INSTAGRAM_PROXY", "")
-        if proxy:
-            return proxy
-    except Exception:
-        pass
-    return os.environ.get("INSTAGRAM_PROXY") or None
-
-_NAV_HEADERS = {
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Upgrade-Insecure-Requests": "1",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-User": "?1",
-}
-
-
-def _api_headers(csrf_token: str) -> dict:
-    """Headers for Instagram REST API / GraphQL XHR calls."""
-    return {
-        "Accept": "*/*",
-        "X-CSRFToken": csrf_token,
-        "X-IG-App-ID": DEFAULT_IG_APP_ID,
-        "X-Requested-With": "XMLHttpRequest",
-        "X-ASBD-ID": "129477",
-        "X-IG-WWW-Claim": "0",
-        "Referer": "https://www.instagram.com/",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-origin",
-    }
 
 # ──────────────────────────────────────────────
 # URL Helpers
@@ -280,11 +241,12 @@ async def init_session(
     Returns (session, csrf_token, has_auth)."""
     headers = {
         "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br, zstd",
-        "Sec-Ch-Ua": f'"Google Chrome";v="{CHROME_VERSION}", "Not?A_Brand";v="99", "Chromium";v="{CHROME_VERSION}"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"macOS"',
+        "Accept-Encoding": "gzip, deflate, br",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
     }
 
     jar = aiohttp.CookieJar()
@@ -308,10 +270,8 @@ async def init_session(
         try:
             async with session.get(
                 "https://www.instagram.com/",
-                headers=_NAV_HEADERS,
                 allow_redirects=True,
                 timeout=aiohttp.ClientTimeout(total=15),
-                proxy=_get_proxy(),
             ) as resp:
                 for cookie in session.cookie_jar:
                     if cookie.key == "csrftoken":
@@ -331,10 +291,8 @@ async def fetch_page_html(session: aiohttp.ClientSession, url: str) -> str:
     try:
         async with session.get(
             url,
-            headers=_NAV_HEADERS,
             allow_redirects=True,
             timeout=aiohttp.ClientTimeout(total=30),
-            proxy=_get_proxy(),
         ) as resp:
             if resp.status != 200:
                 return ""
@@ -512,11 +470,18 @@ async def fetch_comments_rest(
     if min_id:
         params["min_id"] = min_id
 
+    headers = {
+        "X-CSRFToken": csrf_token,
+        "X-IG-App-ID": DEFAULT_IG_APP_ID,
+        "X-Requested-With": "XMLHttpRequest",
+        "X-ASBD-ID": "129477",
+        "X-IG-WWW-Claim": "0",
+        "Referer": "https://www.instagram.com/",
+    }
     try:
         async with session.get(
-            url, params=params, headers=_api_headers(csrf_token),
+            url, params=params, headers=headers,
             timeout=aiohttp.ClientTimeout(total=15),
-            proxy=_get_proxy(),
         ) as resp:
             if resp.status != 200:
                 return {"__error": True, "status": resp.status}
@@ -542,11 +507,18 @@ async def fetch_child_comments(
     if max_id:
         params["max_id"] = max_id
 
+    headers = {
+        "X-CSRFToken": csrf_token,
+        "X-IG-App-ID": DEFAULT_IG_APP_ID,
+        "X-Requested-With": "XMLHttpRequest",
+        "X-ASBD-ID": "129477",
+        "X-IG-WWW-Claim": "0",
+        "Referer": "https://www.instagram.com/",
+    }
     try:
         async with session.get(
-            url, params=params, headers=_api_headers(csrf_token),
+            url, params=params, headers=headers,
             timeout=aiohttp.ClientTimeout(total=15),
-            proxy=_get_proxy(),
         ) as resp:
             if resp.status != 200:
                 return {"__error": True, "status": resp.status}
@@ -574,12 +546,19 @@ async def graphql_query(
         "doc_id": doc_id,
         "variables": json.dumps(variables),
     }
-    headers = {**_api_headers(csrf_token), "Content-Type": "application/x-www-form-urlencoded"}
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-CSRFToken": csrf_token,
+        "X-IG-App-ID": DEFAULT_IG_APP_ID,
+        "X-Requested-With": "XMLHttpRequest",
+        "X-ASBD-ID": "129477",
+        "X-IG-WWW-Claim": "0",
+        "Referer": "https://www.instagram.com/",
+    }
     try:
         async with session.post(
             url, data=form_data, headers=headers,
             timeout=aiohttp.ClientTimeout(total=15),
-            proxy=_get_proxy(),
         ) as resp:
             if resp.status != 200:
                 return {"__error": True, "status": resp.status}
@@ -602,10 +581,6 @@ async def fetch_media_via_graphql(
     Returns a dict compatible with the legacy ``shortcode_media`` format
     used by the rest of the scraper, or *None* on failure.
     """
-    def _log(msg):
-        if progress_callback:
-            progress_callback(msg)
-
     for doc_id in GRAPHQL_DOC_IDS:
         result = await graphql_query(
             session, doc_id,
@@ -614,7 +589,8 @@ async def fetch_media_via_graphql(
         )
         if not result or result.get("__error"):
             err = result if result else {"message": "empty response"}
-            _log(f"GraphQL doc {doc_id}: {err.get('status', err.get('message', '?'))}")
+            if progress_callback:
+                progress_callback(f"GraphQL doc {doc_id}: {err.get('status', err.get('message', '?'))}")
             continue
         media = (
             find_key_recursive(result, "xdt_shortcode_media")
@@ -732,7 +708,7 @@ async def scrape_single_post(
 
     # Init session
     session, csrf_token, has_auth = await init_session(cookies)
-    _progress(f"Session: auth={has_auth}, csrf={'yes' if csrf_token else 'NO'}")
+    # Session initialized
 
     all_comments: list[dict] = []
     seen_ids: set[str] = set()
@@ -749,30 +725,13 @@ async def scrape_single_post(
     try:
         # Phase 1: Fetch page HTML and extract embedded data
         _progress("Loading post...")
-        shortcode_media = None
         html = await fetch_page_html(session, post_url)
-        if not html:
-            _progress("Could not load post (empty response).")
-            # Still try GraphQL even if page fetch failed
-            _progress("Trying GraphQL API...")
-            shortcode_media = await fetch_media_via_graphql(
-                session, shortcode, csrf_token,
-                progress_callback=progress_callback,
-            )
-            if shortcode_media:
-                # Jump into the processing flow below
-                html = ""
-            else:
-                _progress("GraphQL also failed. Instagram may be blocking this server.")
-                return []
-
-        login_page = "/accounts/login/" in html or "loginForm" in html
-        _progress(f"Page: {len(html)} bytes, login_redirect={login_page}")
 
         web_info = None
         comments_conn = None
-        # shortcode_media may already be set by the empty-HTML GraphQL fallback
-        if not shortcode_media and not login_page and html:
+        shortcode_media = None
+
+        if html and "/accounts/login/" not in html and "loginForm" not in html:
             relay_data = extract_relay_data(html)
             web_info = relay_data.get("web_info")
             comments_conn = relay_data.get("comments")
@@ -783,7 +742,7 @@ async def scrape_single_post(
         end_cursor = None
         caption_text = ""
 
-        # If HTML had no data (login page, or authenticated SPA shell),
+        # If HTML had no data (login page, empty, or authenticated SPA shell),
         # fall back to GraphQL API which works with or without cookies.
         if not web_info and not comments_conn and not shortcode_media:
             _progress("Trying GraphQL API...")
@@ -792,12 +751,8 @@ async def scrape_single_post(
                 progress_callback=progress_callback,
             )
             if not shortcode_media:
-                if login_page:
-                    _progress("Could not load post data. Try uploading fresh cookies.")
-                else:
-                    _progress(
-                        "No data found. The post may be private or the format has changed."
-                    )
+                _progress("Could not load post data.")
+                return []
 
         if web_info:
             caption_text = web_info.get("caption_text", "")
