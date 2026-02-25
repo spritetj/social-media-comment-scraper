@@ -729,34 +729,37 @@ async def scrape_single_post(
             _progress("Could not load post.")
             return []
 
-        if "/accounts/login/" in html or "loginForm" in html:
-            _progress("Login required. Please upload cookies.")
-            await session.close()
-            return []
+        login_page = "/accounts/login/" in html or "loginForm" in html
 
-        relay_data = extract_relay_data(html)
+        web_info = None
+        comments_conn = None
+        shortcode_media = None
 
-        web_info = relay_data.get("web_info")
-        comments_conn = relay_data.get("comments")
-        shortcode_media = relay_data.get("shortcode_media")
+        if not login_page:
+            relay_data = extract_relay_data(html)
+            web_info = relay_data.get("web_info")
+            comments_conn = relay_data.get("comments")
+            shortcode_media = relay_data.get("shortcode_media")
 
         total_comment_count = 0
         has_more_comments = False
         end_cursor = None
         caption_text = ""
 
+        # If HTML had no data (login page, or authenticated SPA shell),
+        # fall back to GraphQL API which works with or without cookies.
         if not web_info and not comments_conn and not shortcode_media:
-            _progress("No embedded data in HTML, trying GraphQL API...")
+            _progress("Trying GraphQL API...")
             shortcode_media = await fetch_media_via_graphql(
                 session, shortcode, csrf_token,
             )
             if not shortcode_media:
-                script_tags = len(re.findall(r'<script\s+type="application/json"', html))
-                _progress(
-                    f"No data found (HTML length={len(html)}, "
-                    f"json script tags={script_tags}). "
-                    "The page may require login or the format has changed."
-                )
+                if login_page:
+                    _progress("Could not load post data. Try uploading fresh cookies.")
+                else:
+                    _progress(
+                        "No data found. The post may be private or the format has changed."
+                    )
 
         if web_info:
             caption_text = web_info.get("caption_text", "")
