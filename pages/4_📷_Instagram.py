@@ -81,18 +81,25 @@ if scrape_btn and url_input.strip():
 
     # Progress display
     progress_placeholder = st.empty()
+    debug_placeholder = st.empty()
     tracker = ProgressTracker(total_videos=len(urls), placeholder=progress_placeholder)
+
+    # Capture all raw progress messages for debugging
+    _debug_log: list[str] = []
+    def _progress_with_log(msg: str):
+        _debug_log.append(msg)
+        tracker.on_message(msg)
 
     # Run scraper
     start_time = time.time()
 
     try:
         all_comments = run_async(
-            scrape_post_urls(urls, cookies=cookies, progress_callback=tracker.on_message)
+            scrape_post_urls(urls, cookies=cookies, progress_callback=_progress_with_log)
         )
     except Exception as e:
         all_comments = []
-        tracker.on_message(f"Something went wrong. Please try again.")
+        st.error(f"Scraper error: {type(e).__name__}: {e}")
 
     elapsed = time.time() - start_time
     tracker.complete(len(all_comments), elapsed)
@@ -164,6 +171,9 @@ if scrape_btn and url_input.strip():
                 pass
     else:
         st.info("No comments were found. The post may have no comments or require login.")
+        if _debug_log:
+            with st.expander("Debug log"):
+                st.code("\n".join(_debug_log))
 
 elif scrape_btn:
     st.warning("Please enter at least one Instagram URL above.")
