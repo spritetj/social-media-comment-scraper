@@ -23,9 +23,10 @@ import aiohttp
 # Constants & Config
 # ──────────────────────────────────────────────
 
+CHROME_VERSION = "133"
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    f"AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{CHROME_VERSION}.0.0.0 Safari/537.36"
 )
 
 DEFAULT_IG_APP_ID = "936619743392459"
@@ -39,6 +40,31 @@ GRAPHQL_DOC_IDS = [
     "7803498539768460",
     "9064463823609386",
 ]
+
+_NAV_HEADERS = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+}
+
+
+def _api_headers(csrf_token: str) -> dict:
+    """Headers for Instagram REST API / GraphQL XHR calls."""
+    return {
+        "Accept": "*/*",
+        "X-CSRFToken": csrf_token,
+        "X-IG-App-ID": DEFAULT_IG_APP_ID,
+        "X-Requested-With": "XMLHttpRequest",
+        "X-ASBD-ID": "129477",
+        "X-IG-WWW-Claim": "0",
+        "Referer": "https://www.instagram.com/",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+    }
 
 # ──────────────────────────────────────────────
 # URL Helpers
@@ -241,12 +267,11 @@ async def init_session(
     Returns (session, csrf_token, has_auth)."""
     headers = {
         "User-Agent": USER_AGENT,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Sec-Ch-Ua": f'"Google Chrome";v="{CHROME_VERSION}", "Not?A_Brand";v="99", "Chromium";v="{CHROME_VERSION}"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"macOS"',
     }
 
     jar = aiohttp.CookieJar()
@@ -270,6 +295,7 @@ async def init_session(
         try:
             async with session.get(
                 "https://www.instagram.com/",
+                headers=_NAV_HEADERS,
                 allow_redirects=True,
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as resp:
@@ -291,6 +317,7 @@ async def fetch_page_html(session: aiohttp.ClientSession, url: str) -> str:
     try:
         async with session.get(
             url,
+            headers=_NAV_HEADERS,
             allow_redirects=True,
             timeout=aiohttp.ClientTimeout(total=30),
         ) as resp:
@@ -470,17 +497,9 @@ async def fetch_comments_rest(
     if min_id:
         params["min_id"] = min_id
 
-    headers = {
-        "X-CSRFToken": csrf_token,
-        "X-IG-App-ID": DEFAULT_IG_APP_ID,
-        "X-Requested-With": "XMLHttpRequest",
-        "X-ASBD-ID": "129477",
-        "X-IG-WWW-Claim": "0",
-        "Referer": "https://www.instagram.com/",
-    }
     try:
         async with session.get(
-            url, params=params, headers=headers,
+            url, params=params, headers=_api_headers(csrf_token),
             timeout=aiohttp.ClientTimeout(total=15),
         ) as resp:
             if resp.status != 200:
@@ -507,17 +526,9 @@ async def fetch_child_comments(
     if max_id:
         params["max_id"] = max_id
 
-    headers = {
-        "X-CSRFToken": csrf_token,
-        "X-IG-App-ID": DEFAULT_IG_APP_ID,
-        "X-Requested-With": "XMLHttpRequest",
-        "X-ASBD-ID": "129477",
-        "X-IG-WWW-Claim": "0",
-        "Referer": "https://www.instagram.com/",
-    }
     try:
         async with session.get(
-            url, params=params, headers=headers,
+            url, params=params, headers=_api_headers(csrf_token),
             timeout=aiohttp.ClientTimeout(total=15),
         ) as resp:
             if resp.status != 200:
@@ -546,15 +557,7 @@ async def graphql_query(
         "doc_id": doc_id,
         "variables": json.dumps(variables),
     }
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "X-CSRFToken": csrf_token,
-        "X-IG-App-ID": DEFAULT_IG_APP_ID,
-        "X-Requested-With": "XMLHttpRequest",
-        "X-ASBD-ID": "129477",
-        "X-IG-WWW-Claim": "0",
-        "Referer": "https://www.instagram.com/",
-    }
+    headers = {**_api_headers(csrf_token), "Content-Type": "application/x-www-form-urlencoded"}
     try:
         async with session.post(
             url, data=form_data, headers=headers,
@@ -632,12 +635,22 @@ async def scrape_single_post(
 
         if "/accounts/login/" in html or "loginForm" in html:
             _progress("Login required. Please upload cookies.")
+            await session.close()
+            return []
 
         relay_data = extract_relay_data(html)
 
         web_info = relay_data.get("web_info")
         comments_conn = relay_data.get("comments")
         shortcode_media = relay_data.get("shortcode_media")
+
+        if not web_info and not comments_conn and not shortcode_media:
+            script_tags = len(re.findall(r'<script\s+type="application/json"', html))
+            _progress(
+                f"No data found in HTML (length={len(html)}, "
+                f"json script tags={script_tags}). "
+                "The page may require login or the format has changed."
+            )
         total_comment_count = 0
         has_more_comments = False
         end_cursor = None
