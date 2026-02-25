@@ -577,12 +577,17 @@ async def fetch_media_via_graphql(
     session: aiohttp.ClientSession,
     shortcode: str,
     csrf_token: str,
+    progress_callback: callable = None,
 ) -> dict | None:
     """Fetch post media info + initial comments via GraphQL.
 
     Returns a dict compatible with the legacy ``shortcode_media`` format
     used by the rest of the scraper, or *None* on failure.
     """
+    def _log(msg):
+        if progress_callback:
+            progress_callback(msg)
+
     for doc_id in GRAPHQL_DOC_IDS:
         result = await graphql_query(
             session, doc_id,
@@ -590,6 +595,8 @@ async def fetch_media_via_graphql(
             csrf_token,
         )
         if not result or result.get("__error"):
+            err = result if result else {"message": "empty response"}
+            _log(f"GraphQL doc {doc_id}: {err.get('status', err.get('message', '?'))}")
             continue
         media = (
             find_key_recursive(result, "xdt_shortcode_media")
@@ -707,7 +714,7 @@ async def scrape_single_post(
 
     # Init session
     session, csrf_token, has_auth = await init_session(cookies)
-    # Session initialized
+    _progress(f"Session: auth={has_auth}, csrf={'yes' if csrf_token else 'NO'}")
 
     all_comments: list[dict] = []
     seen_ids: set[str] = set()
@@ -724,18 +731,30 @@ async def scrape_single_post(
     try:
         # Phase 1: Fetch page HTML and extract embedded data
         _progress("Loading post...")
+        shortcode_media = None
         html = await fetch_page_html(session, post_url)
         if not html:
-            _progress("Could not load post.")
-            return []
+            _progress("Could not load post (empty response).")
+            # Still try GraphQL even if page fetch failed
+            _progress("Trying GraphQL API...")
+            shortcode_media = await fetch_media_via_graphql(
+                session, shortcode, csrf_token,
+                progress_callback=progress_callback,
+            )
+            if shortcode_media:
+                # Jump into the processing flow below
+                html = ""
+            else:
+                _progress("GraphQL also failed. Instagram may be blocking this server.")
+                return []
 
         login_page = "/accounts/login/" in html or "loginForm" in html
+        _progress(f"Page: {len(html)} bytes, login_redirect={login_page}")
 
         web_info = None
         comments_conn = None
-        shortcode_media = None
-
-        if not login_page:
+        # shortcode_media may already be set by the empty-HTML GraphQL fallback
+        if not shortcode_media and not login_page and html:
             relay_data = extract_relay_data(html)
             web_info = relay_data.get("web_info")
             comments_conn = relay_data.get("comments")
@@ -752,6 +771,7 @@ async def scrape_single_post(
             _progress("Trying GraphQL API...")
             shortcode_media = await fetch_media_via_graphql(
                 session, shortcode, csrf_token,
+                progress_callback=progress_callback,
             )
             if not shortcode_media:
                 if login_page:
