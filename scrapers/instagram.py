@@ -13,6 +13,7 @@ Two-tier approach:
 
 import asyncio
 import json
+import os
 import random
 import re
 from datetime import datetime, timezone
@@ -40,6 +41,18 @@ GRAPHQL_DOC_IDS = [
     "7803498539768460",
     "9064463823609386",
 ]
+
+
+def _get_proxy() -> str | None:
+    """Return proxy URL from Streamlit secrets or env var, or None."""
+    try:
+        import streamlit as st
+        proxy = st.secrets.get("INSTAGRAM_PROXY", "")
+        if proxy:
+            return proxy
+    except Exception:
+        pass
+    return os.environ.get("INSTAGRAM_PROXY") or None
 
 _NAV_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -298,6 +311,7 @@ async def init_session(
                 headers=_NAV_HEADERS,
                 allow_redirects=True,
                 timeout=aiohttp.ClientTimeout(total=15),
+                proxy=_get_proxy(),
             ) as resp:
                 for cookie in session.cookie_jar:
                     if cookie.key == "csrftoken":
@@ -320,6 +334,7 @@ async def fetch_page_html(session: aiohttp.ClientSession, url: str) -> str:
             headers=_NAV_HEADERS,
             allow_redirects=True,
             timeout=aiohttp.ClientTimeout(total=30),
+            proxy=_get_proxy(),
         ) as resp:
             if resp.status != 200:
                 return ""
@@ -501,6 +516,7 @@ async def fetch_comments_rest(
         async with session.get(
             url, params=params, headers=_api_headers(csrf_token),
             timeout=aiohttp.ClientTimeout(total=15),
+            proxy=_get_proxy(),
         ) as resp:
             if resp.status != 200:
                 return {"__error": True, "status": resp.status}
@@ -530,6 +546,7 @@ async def fetch_child_comments(
         async with session.get(
             url, params=params, headers=_api_headers(csrf_token),
             timeout=aiohttp.ClientTimeout(total=15),
+            proxy=_get_proxy(),
         ) as resp:
             if resp.status != 200:
                 return {"__error": True, "status": resp.status}
@@ -562,6 +579,7 @@ async def graphql_query(
         async with session.post(
             url, data=form_data, headers=headers,
             timeout=aiohttp.ClientTimeout(total=15),
+            proxy=_get_proxy(),
         ) as resp:
             if resp.status != 200:
                 return {"__error": True, "status": resp.status}
