@@ -494,30 +494,32 @@ async def fetch_page_and_tokens(
                 result["feedback_id_strategy"] = "url_match"
                 break
 
-    # Strategy 2: Heuristic
+    # Strategy 2: Heuristic (only when NOT on a feed/profile page)
     if not result["feedback_id"]:
-        top_level = [(fid, d) for fid, d in decoded_fids
-                     if d.startswith("feedback:") and "_" not in d]
-        if top_level:
-            best_fid = ""
-            best_count = 0
-            for fid, decoded in top_level:
-                prefix = decoded + "_"
-                count = sum(1 for _, d in decoded_fids if d.startswith(prefix))
-                if count > best_count:
-                    best_count = count
-                    best_fid = fid
-            result["feedback_id"] = best_fid or top_level[0][0]
-            result["feedback_id_strategy"] = "heuristic"
-        elif all_fids:
-            result["feedback_id"] = all_fids[0]
-            result["feedback_id_strategy"] = "heuristic"
-
-        if result["feed_page_detected"] and result["feedback_id_strategy"] == "heuristic":
+        if result["feed_page_detected"]:
+            # Many feedback_ids found → this is a profile/feed page,
+            # not the intended post.  Do NOT guess a feedback_id.
             _progress(
-                f"This URL contains multiple posts. "
-                f"Comments may not match the intended post."
+                "Landed on a feed/profile page instead of the target post. "
+                "Skipping to avoid scraping wrong comments."
             )
+        else:
+            top_level = [(fid, d) for fid, d in decoded_fids
+                         if d.startswith("feedback:") and "_" not in d]
+            if top_level:
+                best_fid = ""
+                best_count = 0
+                for fid, decoded in top_level:
+                    prefix = decoded + "_"
+                    count = sum(1 for _, d in decoded_fids if d.startswith(prefix))
+                    if count > best_count:
+                        best_count = count
+                        best_fid = fid
+                result["feedback_id"] = best_fid or top_level[0][0]
+                result["feedback_id_strategy"] = "heuristic"
+            elif all_fids:
+                result["feedback_id"] = all_fids[0]
+                result["feedback_id_strategy"] = "heuristic"
 
     # Strategy 3: Construct from URL
     if not result["feedback_id"] and url_post_id and url_type == "post":
@@ -797,8 +799,35 @@ async def scrape_comments_fast(
             _progress("Authentication failed. Please check your cookies.")
             return []
 
+        # Detect redirect to profile/feed page
+        if tokens.get("redirect_detected"):
+            final_url = tokens.get("final_url", "")
+            # If the final URL no longer contains any post/video/reel/photo
+            # indicators, it was likely redirected to a profile page.
+            if final_url and not extract_post_id_from_url(final_url):
+                post_indicators = ("/posts/", "/videos/", "/reel/", "/reels/",
+                                   "/watch", "/photo", "story_fbid=", "fbid=")
+                if not any(ind in final_url for ind in post_indicators):
+                    _progress(
+                        f"Redirected away from post to: {final_url[:80]}. Skipping."
+                    )
+                    return []
+
         if not tokens["feedback_id"]:
-            _progress("Could not identify this post. Please check the URL.")
+            if tokens.get("feed_page_detected"):
+                _progress(
+                    "This URL leads to a profile/feed page, not a specific post. Skipping."
+                )
+            else:
+                _progress("Could not identify this post. Please check the URL.")
+            return []
+
+        # Guard: even if we got a feedback_id via heuristic, reject if
+        # the page looks like a feed (many posts) — the id is unreliable.
+        if tokens.get("feed_page_detected") and tokens.get("feedback_id_strategy") != "url_match":
+            _progress(
+                "Post not found on this page (profile/feed detected). Skipping."
+            )
             return []
 
         if tokens["post_caption"]:
