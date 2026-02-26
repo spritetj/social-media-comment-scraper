@@ -1092,6 +1092,7 @@ async def scrape_post_urls(
     urls: list[str],
     cookies: list[dict] | dict | None = None,
     progress_callback: callable = None,
+    seen_ids: set | None = None,
 ) -> list[dict]:
     """Scrape Instagram comments from one or more post/reel URLs.
 
@@ -1142,6 +1143,14 @@ async def scrape_post_urls(
     for i, url in enumerate(valid_urls):
         if len(valid_urls) > 1:
             _progress(f"--- Post {i+1}/{len(valid_urls)} ---")
+
+        # Dedup: skip if this shortcode was already scraped in this batch
+        shortcode = extract_shortcode(url)
+        if seen_ids is not None and shortcode:
+            if shortcode in seen_ids:
+                _progress(f"Duplicate post {shortcode}, skipping")
+                continue
+            seen_ids.add(shortcode)
 
         comments = await scrape_single_post(
             url, cookies=cookie_dict, progress_callback=progress_callback,

@@ -62,11 +62,12 @@ async def _scrape_youtube(urls, cookies, callback, max_comments):
         scraper.set_cookies(cookies if isinstance(cookies, dict) else {})
 
     comments = []
+    seen_ids = set()
     for i, url in enumerate(urls):
         if callback:
             callback(f"YouTube {i+1}/{len(urls)}: {url[:60]}...")
         try:
-            result = await scraper.scrape_video_comments(url)
+            result = await scraper.scrape_video_comments(url, seen_ids=seen_ids)
             if result:
                 comments.extend(result)
                 if callback:
@@ -96,11 +97,12 @@ async def _scrape_tiktok(urls, callback, max_comments):
     )
 
     comments = []
+    seen_ids = set()
     for i, url in enumerate(urls):
         if callback:
             callback(f"TikTok {i+1}/{len(urls)}: {url[:60]}...")
         try:
-            result = await scraper.scrape_video_comments(url)
+            result = await scraper.scrape_video_comments(url, seen_ids=seen_ids)
             if result:
                 comments.extend(result)
                 if callback:
@@ -128,11 +130,12 @@ async def _scrape_facebook(urls, cookies, callback):
         return []
 
     comments = []
+    seen_ids = set()
     for i, url in enumerate(urls):
         if callback:
             callback(f"Facebook {i+1}/{len(urls)}: {url[:60]}...")
         try:
-            result = await scrape_comments_fast(url, cookies=cookies, progress_callback=callback)
+            result = await scrape_comments_fast(url, cookies=cookies, progress_callback=callback, seen_ids=seen_ids)
             if result:
                 comments.extend(result)
                 if callback:
@@ -158,7 +161,8 @@ async def _scrape_instagram(urls, cookies, callback):
         callback(f"Scraping {len(urls)} Instagram posts...")
 
     try:
-        comments = await scrape_post_urls(urls, cookies=cookies, progress_callback=callback)
+        seen_ids = set()
+        comments = await scrape_post_urls(urls, cookies=cookies, progress_callback=callback, seen_ids=seen_ids)
         return comments or []
     except Exception:
         if callback:

@@ -809,7 +809,8 @@ class TikTokCommentScraper:
     # ======================================================================
 
     async def scrape_video_comments(
-        self, video_url: str, deadline: float = 0
+        self, video_url: str, deadline: float = 0,
+        seen_ids: set | None = None,
     ) -> list[dict]:
         """
         Main entry point: scrape all comments from a single TikTok video.
@@ -829,6 +830,13 @@ class TikTokCommentScraper:
             self._progress(f"Invalid TikTok URL: {video_url}")
             self._progress("Please provide a valid TikTok video or photo URL")
             return []
+
+        # Dedup: skip if this video was already scraped in this batch
+        if seen_ids is not None:
+            if video_id in seen_ids:
+                self._progress(f"Duplicate video {video_id}, skipping")
+                return []
+            seen_ids.add(video_id)
 
         self._progress(f"Processing: {video_url}")
         limit_text = f"{self.max_comments}" if self.max_comments > 0 else "all"

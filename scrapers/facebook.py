@@ -759,6 +759,7 @@ async def scrape_comments_fast(
     post_url: str,
     cookies: list[dict] | dict = None,
     progress_callback: callable = None,
+    seen_ids: set | None = None,
 ) -> list[dict]:
     """Scrape all comments from a Facebook post URL.
 
@@ -766,6 +767,7 @@ async def scrape_comments_fast(
         post_url: The Facebook post URL to scrape.
         cookies: Playwright-format cookies (list of dicts) or simple {name: value} dict.
         progress_callback: Optional callable(msg: str) for progress updates.
+        seen_ids: Optional set of already-scraped post IDs for dedup within a batch.
 
     Returns:
         List of formatted comment dicts.
@@ -780,6 +782,14 @@ async def scrape_comments_fast(
     if not cookie_dict:
         _progress("No cookies provided. Facebook requires authentication.")
         return []
+
+    # Dedup: skip if this post was already scraped in this batch
+    input_post_id = extract_post_id_from_url(post_url)
+    if seen_ids is not None and input_post_id:
+        if input_post_id in seen_ids:
+            _progress(f"Duplicate post {input_post_id}, skipping")
+            return []
+        seen_ids.add(input_post_id)
 
     start_time = time.time()
     url_type = detect_url_type(post_url)
@@ -802,6 +812,14 @@ async def scrape_comments_fast(
         # Detect redirect to profile/feed page
         if tokens.get("redirect_detected"):
             final_url = tokens.get("final_url", "")
+            # Dedup: if redirect resolved to a post we already scraped, skip
+            if seen_ids is not None and final_url:
+                final_post_id = extract_post_id_from_url(final_url)
+                if final_post_id and final_post_id != input_post_id:
+                    if final_post_id in seen_ids:
+                        _progress(f"Redirected to already-scraped post {final_post_id}, skipping")
+                        return []
+                    seen_ids.add(final_post_id)
             # If the final URL no longer contains any post/video/reel/photo
             # indicators, it was likely redirected to a profile page.
             if final_url and not extract_post_id_from_url(final_url):

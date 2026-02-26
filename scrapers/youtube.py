@@ -1397,6 +1397,7 @@ class YouTubeCommentScraper:
 
     async def scrape_video_comments(
         self, video_url: str, deadline: float = 0,
+        seen_ids: set | None = None,
     ) -> list[dict]:
         """
         Main entry point: scrape all comments from a single YouTube video.
@@ -1412,6 +1413,13 @@ class YouTubeCommentScraper:
         if not video_id:
             self._progress(f"Invalid YouTube URL: {video_url}")
             return []
+
+        # Dedup: skip if this video was already scraped in this batch
+        if seen_ids is not None:
+            if video_id in seen_ids:
+                self._progress(f"Duplicate video {video_id}, skipping")
+                return []
+            seen_ids.add(video_id)
 
         # Normalize URL
         video_url = normalize_youtube_url(video_url)
